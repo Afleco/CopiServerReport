@@ -3,196 +3,159 @@ using WUApiLib;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System;
+using System.Diagnostics.Eventing.Reader;
+using System.Threading.Tasks; // Necesario para las tareas asíncronas
 
 namespace CopicanariasServerReport
 {
     public partial class Form1 : Form
     {
+        // ALMACÉN DE DATOS
+        DatosServidor miReporte = new DatosServidor();
+
         public Form1()
         {
             InitializeComponent();
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
+        private void Form1_Load(object sender, EventArgs e) { }
+        private void pictureBoxLogo_Click(object sender, EventArgs e) { }
+        private void Form1_Load_1(object sender, EventArgs e) { }
+        private void lblTituloCabecera_Click(object sender, EventArgs e) { }
 
+        // =========================================================
+        // EVENTOS DE LOS BOTONES (Ahora solo llaman a las tareas)
+        // =========================================================
+        private void btnCleanTemp_Click(object sender, EventArgs e) { ProcesoLimpieza(); }
+        private void btnSmart_Click(object sender, EventArgs e) { ProcesoSmart(); }
+        private async void btnUpdate_Click(object sender, EventArgs e) { await ProcesoUpdates(); }
+        private void btnReport_Click(object sender, EventArgs e) { ProcesoPDF(); }
+
+        // EL NUEVO BOTÓN AUTOMÁTICO
+        private async void btnAuto_Click(object sender, EventArgs e)
+        {
+            rtbLog.AppendText("\n======================================================\n");
+            rtbLog.AppendText(">>> ⚡ INICIANDO MANTENIMIENTO AUTOMÁTICO COMPLETO ⚡ <<<\n");
+            rtbLog.AppendText("======================================================\n");
+
+            // Ejecutamos paso a paso, esperando a que los procesos largos terminen
+            ProcesoLimpieza();
+            ProcesoSmart();
+            await ProcesoUpdates(); // ¡Aquí el programa se espera pacientemente a que Windows termine!
+            ProcesoPDF();
+
+            rtbLog.AppendText("\n>>> ✅ MANTENIMIENTO AUTOMÁTICO FINALIZADO CON ÉXITO.\n");
         }
 
-        private void pictureBoxLogo_Click(object sender, EventArgs e)
+
+        // =========================================================
+        // LÓGICA INTERNA DE LOS PROCESOS (Refactorizada)
+        // =========================================================
+
+        private void ProcesoLimpieza()
         {
+            rtbLog.AppendText("\n>>> [1/4] Iniciando limpieza de archivos temporales...\n");
 
-        }
+            string userTempPath = System.IO.Path.GetTempPath();
+            string windowsTempPath = @"C:\Windows\Temp";
 
-        private void Form1_Load_1(object sender, EventArgs e)
-        {
-
-        }
-
-        private void lblTituloCabecera_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void btnCleanTemp_Click(object sender, EventArgs e)
-        {
-            // 1. Escribimos en la consola que empezamos
-            rtbLog.AppendText("\n>>> Iniciando limpieza de archivos temporales...\n");
-
-            // 2. Definimos las rutas a limpiar
-            string userTempPath = System.IO.Path.GetTempPath(); // Carpeta Temp del usuario
-            string windowsTempPath = @"C:\Windows\Temp";        // Carpeta Temp del sistema
-
-            // 3. Llamamos a nuestra función de limpieza (la creamos más abajo)
             int archivosBorrados = 0;
-            archivosBorrados += LimpiarDirectorio(userTempPath);
-            archivosBorrados += LimpiarDirectorio(windowsTempPath);
+            long bytesLiberados = 0;
 
-            // 4. Avisamos que terminamos
-            rtbLog.AppendText($">>> Limpieza completada. Archivos/Carpetas eliminados: {archivosBorrados}\n");
+            var resUser = LimpiarDirectorio(userTempPath);
+            archivosBorrados += resUser.Archivos;
+            bytesLiberados += resUser.Bytes;
+
+            var resWin = LimpiarDirectorio(windowsTempPath);
+            archivosBorrados += resWin.Archivos;
+            bytesLiberados += resWin.Bytes;
+
+            miReporte.ArchivosBorrados = archivosBorrados;
+            miReporte.BytesLiberados = bytesLiberados;
+
+            double mbLiberados = bytesLiberados / 1024.0 / 1024.0;
+            rtbLog.AppendText($">>> Limpieza completada. Archivos: {archivosBorrados} | Liberado: {mbLiberados:F2} MB\n");
         }
 
-        // Función auxiliar que hace el trabajo sucio
-        private int LimpiarDirectorio(string ruta)
+        private void ProcesoSmart()
         {
-            int contador = 0;
-
-            // Si la ruta no existe, salimos sin hacer nada
-            if (!System.IO.Directory.Exists(ruta)) return contador;
+            rtbLog.AppendText("\n>>> [2/4] Iniciando diagnóstico S.M.A.R.T. de discos...\n");
 
             try
             {
-                // 1. Primero, borramos todos los archivos sueltos en esta carpeta
-                string[] archivos = System.IO.Directory.GetFiles(ruta);
-                foreach (string archivo in archivos)
-                {
-                    try
-                    {
-                        // Le quitamos el atributo de "Solo Lectura" por si acaso Windows lo protegió
-                        System.IO.File.SetAttributes(archivo, System.IO.FileAttributes.Normal);
-                        System.IO.File.Delete(archivo);
-                        contador++;
-                    }
-                    catch { /* Ignoramos si el archivo está en uso actual */ }
-                }
-
-                // 2. Luego, entramos a cada subcarpeta (Esto se llama Recursividad)
-                string[] carpetas = System.IO.Directory.GetDirectories(ruta);
-                foreach (string carpeta in carpetas)
-                {
-                    // Nos llamamos a nosotros mismos para limpiar esa subcarpeta por dentro
-                    contador += LimpiarDirectorio(carpeta);
-
-                    // Una vez limpia por dentro, intentamos borrar la carpeta en sí
-                    try
-                    {
-                        System.IO.Directory.Delete(carpeta, false); // false porque ya debería estar vacía
-                    }
-                    catch { /* Ignoramos si la carpeta aún tiene algún archivo bloqueado dentro */ }
-                }
-            }
-            catch { /* Ignoramos si Windows nos bloquea el acceso a leer la carpeta */ }
-
-            return contador;
-        }
-
-        private void btnSmart_Click(object sender, EventArgs e)
-        {
-            rtbLog.AppendText("\n>>> Iniciando diagnóstico S.M.A.R.T. de discos físicos...\n");
-
-            try
-            {
-                // 1. Preparamos la consulta al instrumental de Windows (WMI)
-                // Le pedimos el modelo, la interfaz (SATA/NVMe) y el estado de salud
                 ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Model, Status, InterfaceType FROM Win32_DiskDrive");
-
                 int discosDetectados = 0;
+                miReporte.Discos.Clear();
 
-                // 2. Recorremos cada disco duro que Windows encuentre en el servidor
                 foreach (ManagementObject disco in searcher.Get())
                 {
                     discosDetectados++;
-
-                    // Extraemos los datos, si alguno es nulo ponemos "Desconocido"
                     string modelo = disco["Model"]?.ToString() ?? "Disco Desconocido";
                     string tipo = disco["InterfaceType"]?.ToString() ?? "Desconocido";
                     string estado = disco["Status"]?.ToString() ?? "Desconocido";
 
-                    // Escribimos en la consola el nombre del disco
                     rtbLog.AppendText($"- Disco {discosDetectados} [{tipo}]: {modelo}\n");
 
-                    // Evaluamos el estado S.M.A.R.T.
-                    // Si el firmware del disco detecta que se va a romper pronto, el Status cambiará a "Pred Fail" o "Error"
+                    string estadoFinal = "";
                     if (estado.ToUpper() == "OK")
                     {
                         rtbLog.AppendText("  [+] Estado S.M.A.R.T.: OK (Saludable)\n");
+                        estadoFinal = "OK (Saludable)";
                     }
                     else
                     {
                         rtbLog.AppendText($"  [-] ALERTA S.M.A.R.T.: El disco reporta problemas ({estado})\n");
+                        estadoFinal = $"ALERTA ({estado})";
                     }
+
+                    miReporte.Discos.Add(new DiscoInfo { Modelo = modelo, Tipo = tipo, Estado = estadoFinal });
                 }
 
-                if (discosDetectados == 0)
-                {
-                    rtbLog.AppendText(">>> ADVERTENCIA: No se detectaron discos físicos compatibles.\n");
-                }
+                if (discosDetectados == 0) rtbLog.AppendText(">>> ADVERTENCIA: No se detectaron discos físicos.\n");
             }
-            catch (Exception ex)
-            {
-                // Si hay algún error de permisos o el servicio WMI está caído en el servidor
-                rtbLog.AppendText($">>> ERROR al leer discos: {ex.Message}\n");
-            }
-
-            rtbLog.AppendText(">>> Diagnóstico de hardware finalizado.\n");
+            catch (Exception ex) { rtbLog.AppendText($">>> ERROR al leer discos: {ex.Message}\n"); }
         }
 
-        private async void btnUpdate_Click(object sender, EventArgs e)
+        private async Task ProcesoUpdates()
         {
-            // Desactivamos el botón para que el usuario no le haga clic 20 veces por desesperación
-            btnUpdate.Enabled = false;
-            rtbLog.AppendText("\n>>> Conectando con Windows Update. Buscando actualizaciones pendientes...\n");
+            rtbLog.AppendText("\n>>> [3/4] Conectando con Windows Update...\n");
             rtbLog.AppendText(">>> (Por favor, ten paciencia, esto puede tardar varios minutos)\n");
 
             try
             {
-                // Creamos una "tarea en segundo plano" para que la ventana no se congele
                 await Task.Run(() =>
                 {
-                    // 1. Iniciamos sesión en Windows Update
+                    miReporte.UpdatesEjecutado = true;
+                    miReporte.NombresUpdates.Clear();
+                    miReporte.UpdatesPendientes = 0;
+                    miReporte.UpdatesInstalados = 0;
+                    miReporte.RequiereReinicio = false;
+
                     UpdateSession updateSession = new UpdateSession();
                     IUpdateSearcher updateSearcher = updateSession.CreateUpdateSearcher();
-
-                    // 2. Buscamos actualizaciones que NO estén instaladas y no estén ocultas
                     ISearchResult searchResult = updateSearcher.Search("IsInstalled=0 and Type='Software' and IsHidden=0");
 
                     int cantidad = searchResult.Updates.Count;
+                    miReporte.UpdatesPendientes = cantidad;
 
-                    // Como estamos en segundo plano, usamos Invoke para "pedirle permiso" a la ventana para escribir
-                    this.Invoke((MethodInvoker)delegate
-                    {
-                        rtbLog.AppendText($">>> Se encontraron {cantidad} actualizaciones pendientes.\n");
-                    });
+                    this.Invoke((MethodInvoker)delegate { rtbLog.AppendText($">>> Se encontraron {cantidad} actualizaciones pendientes.\n"); });
 
                     if (cantidad > 0)
                     {
-                        // 3. Preparamos las actualizaciones para descargar
                         UpdateCollection updatesToProcess = new UpdateCollection();
                         foreach (IUpdate update in searchResult.Updates)
                         {
                             updatesToProcess.Add(update);
-                            this.Invoke((MethodInvoker)delegate
-                            {
-                                rtbLog.AppendText($"  - {update.Title}\n");
-                            });
+                            miReporte.NombresUpdates.Add(update.Title);
+                            this.Invoke((MethodInvoker)delegate { rtbLog.AppendText($"  - {update.Title}\n"); });
                         }
 
-                        // 4. Descargamos
                         this.Invoke((MethodInvoker)delegate { rtbLog.AppendText(">>> Descargando actualizaciones...\n"); });
                         IUpdateDownloader downloader = updateSession.CreateUpdateDownloader();
                         downloader.Updates = updatesToProcess;
                         downloader.Download();
 
-                        // 5. Instalamos
                         this.Invoke((MethodInvoker)delegate { rtbLog.AppendText(">>> Instalando actualizaciones (MODO SILENCIOSO)...\n"); });
                         IUpdateInstaller installer = updateSession.CreateUpdateInstaller();
                         installer.Updates = updatesToProcess;
@@ -201,22 +164,19 @@ namespace CopicanariasServerReport
 
                         this.Invoke((MethodInvoker)delegate
                         {
+                            miReporte.UpdatesInstalados = cantidad;
                             rtbLog.AppendText($">>> Proceso finalizado. Código de resultado: {result.ResultCode}\n");
 
-                            // Comprobamos si Windows pide reiniciar, pero NO lo reiniciamos nosotros
                             if (result.RebootRequired)
                             {
-                                rtbLog.AppendText(">>> NOTA: El sistema requiere un reinicio para aplicar los cambios.\n");
-                                rtbLog.AppendText(">>> REINICIO OMITIDO SEGÚN PROTOCOLO DE LA EMPRESA.\n");
+                                miReporte.RequiereReinicio = true;
+                                rtbLog.AppendText(">>> NOTA: El sistema requiere un reinicio.\n");
                             }
                         });
                     }
                     else
                     {
-                        this.Invoke((MethodInvoker)delegate
-                        {
-                            rtbLog.AppendText(">>> El servidor está completamente actualizado.\n");
-                        });
+                        this.Invoke((MethodInvoker)delegate { rtbLog.AppendText(">>> El servidor está completamente actualizado.\n"); });
                     }
                 });
             }
@@ -224,58 +184,212 @@ namespace CopicanariasServerReport
             {
                 rtbLog.AppendText($">>> ERROR en Windows Update: {ex.Message}\n");
             }
-            finally
-            {
-                // Volvemos a activar el botón al terminar
-                btnUpdate.Enabled = true;
-            }
         }
 
-        private void btnReport_Click(object sender, EventArgs e)
+        private void ProcesoPDF()
         {
-            // QuestPDF requiere declarar que usamos la licencia gratuita (Community)
             QuestPDF.Settings.License = LicenseType.Community;
-
-            // Preparamos la ruta donde se guardará: En el Escritorio del usuario actual
             string rutaEscritorio = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             string fecha = DateTime.Now.ToString("dd-MM-yyyy_HH-mm");
-            string rutaArchivo = System.IO.Path.Combine(rutaEscritorio, $"Mantenimiento_Copicanarias_{fecha}.pdf");
+            string rutaArchivo = System.IO.Path.Combine(rutaEscritorio, $"Auditoria_Copicanarias_{fecha}.pdf");
 
             try
             {
-                rtbLog.AppendText("\n>>> Generando informe PDF...\n");
+                rtbLog.AppendText("\n>>> [4/4] Generando informe PDF Profesional...\n");
 
+                // --- DATOS DEL SISTEMA ---
+                try
+                {
+                    using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem"))
+                    {
+                        foreach (ManagementObject os in searcher.Get()) { miReporte.SistemaOperativo = os["Caption"]?.ToString() ?? Environment.OSVersion.ToString(); break; }
+                    }
+                    using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem"))
+                    {
+                        foreach (ManagementObject cs in searcher.Get()) { miReporte.MemoriaRAM = $"{Math.Round(Convert.ToInt64(cs["TotalPhysicalMemory"]) / (1024.0 * 1024.0 * 1024.0))} GB"; break; }
+                    }
+                    System.IO.DriveInfo driveC = new System.IO.DriveInfo("C");
+                    if (driveC.IsReady)
+                    {
+                        double totalGB = driveC.TotalSize / (1024.0 * 1024.0 * 1024.0);
+                        double libreGB = driveC.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0);
+                        miReporte.PorcentajeLibreC = (libreGB / totalGB) * 100;
+                        miReporte.EspacioDiscoC = $"{libreGB:F1} GB libres de {totalGB:F1} GB";
+                    }
+
+                    // COPIAS DE SEGURIDAD
+                    try
+                    {
+                        EventLogQuery query = new EventLogQuery("Microsoft-Windows-Backup/Operational", PathType.LogName, "*[System[(EventID=4 or EventID=5 or EventID=14)]]");
+                        query.ReverseDirection = true;
+                        using (EventLogReader reader = new EventLogReader(query))
+                        {
+                            EventRecord record = reader.ReadEvent();
+                            if (record != null)
+                            {
+                                miReporte.FechaUltimoBackup = record.TimeCreated?.ToString("dd/MM/yyyy HH:mm") ?? "Desconocida";
+                                miReporte.EstadoBackup = (record.Id == 4 || record.Id == 14) ? "OK (Completada)" : "Fallida/Error";
+                            }
+                            else { miReporte.EstadoBackup = "Sin registros"; miReporte.FechaUltimoBackup = "N/A"; }
+                        }
+                    }
+                    catch { miReporte.EstadoBackup = "No configurado / App Externa"; miReporte.FechaUltimoBackup = "N/A"; }
+                }
+                catch { }
+
+                // --- IMAGEN ---
+                System.Drawing.Bitmap logoBmp = Properties.Resources.copicanariasicon;
+                byte[] bytesImagen;
+                using (System.IO.MemoryStream ms = new System.IO.MemoryStream())
+                {
+                    logoBmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                    bytesImagen = ms.ToArray();
+                }
+
+                // --- DOCUMENTO ---
                 Document.Create(container =>
                 {
                     container.Page(page =>
                     {
-                        // Configuración de la página (A4, márgenes blancos)
                         page.Size(PageSizes.A4);
-                        page.Margin(2, Unit.Centimetre);
-                        page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Segoe UI"));
+                        page.Margin(1.5f, Unit.Centimetre);
+                        page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Segoe UI"));
 
-                        // 1. CABECERA
-                        page.Header().Column(col =>
+                        page.Header().Column(colHeader =>
                         {
-                            col.Item().Text("INFORME DE MANTENIMIENTO DE SERVIDOR")
-                                .SemiBold().FontSize(18).FontColor(Colors.Blue.Darken2);
-                            col.Item().Text("Grupo Copicanarias").FontSize(14).FontColor(Colors.Grey.Medium);
-                            col.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+                            colHeader.Item().Row(row =>
+                            {
+                                row.RelativeItem().Column(colTextos =>
+                                {
+                                    colTextos.Item().Text("INFORME DE AUDITORÍA Y MANTENIMIENTO").SemiBold().FontSize(18).FontColor(Colors.Blue.Darken4);
+                                    colTextos.Item().Text("Grupo Copicanarias").FontSize(14).FontColor(Colors.Grey.Darken1);
+                                    colTextos.Item().Text("Departamento de Sistemas").FontSize(11).FontColor(Colors.Grey.Medium);
+                                });
+                                row.ConstantItem(100).AlignRight().Height(50).Image(bytesImagen).FitArea();
+                            });
+                            colHeader.Item().PaddingTop(10).LineHorizontal(1.5f).LineColor(Colors.Grey.Lighten1);
+                            colHeader.Item().PaddingTop(3).Text($"Fecha de emisión: {miReporte.FechaHora}").FontSize(8).FontColor(Colors.Grey.Medium).AlignRight();
                         });
 
-                        // 2. CONTENIDO (Aquí volcamos lo que dice la consola negra)
                         page.Content().PaddingVertical(1, Unit.Centimetre).Column(column =>
                         {
-                            column.Spacing(15);
-                            column.Item().Text($"Fecha y Hora de ejecución: {DateTime.Now:dd/MM/yyyy HH:mm}");
-                            column.Item().Text("Registro completo de operaciones:").SemiBold();
+                            // SECCIÓN 1: SISTEMA
+                            column.Item().PaddingBottom(5).Text("1. Información General del Sistema").FontSize(14).SemiBold().FontColor(Colors.Blue.Darken2);
+                            column.Item().LineHorizontal(1).LineColor(Colors.Blue.Darken2);
+                            column.Item().PaddingBottom(10);
 
-                            // Metemos el texto en un cuadro gris para que parezca código/log
-                            column.Item().Background(Colors.Grey.Lighten4).Padding(15)
-                                  .Text(rtbLog.Text).FontFamily("Consolas").FontSize(9);
+                            column.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns => { columns.RelativeColumn(); columns.RelativeColumn(); });
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Nombre del Servidor:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.NombreServidor);
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Sistema Operativo:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.SistemaOperativo);
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Arquitectura:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.Arquitectura);
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Memoria RAM Total:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.MemoriaRAM);
+
+                                var colorEspacio = miReporte.PorcentajeLibreC < 20 ? Colors.Red.Darken2 : Colors.Black;
+                                string alertaEspacio = miReporte.PorcentajeLibreC < 20 ? " (¡CRÍTICO!)" : "";
+                                string textoEspacio = $"{miReporte.EspacioDiscoC} ({miReporte.PorcentajeLibreC:F1}% disponible){alertaEspacio}";
+
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Espacio en Disco (C:):").SemiBold();
+                                if (miReporte.PorcentajeLibreC < 20) table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(textoEspacio).FontColor(colorEspacio).SemiBold();
+                                else table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(textoEspacio).FontColor(colorEspacio);
+
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Última Copia de Seguridad:").SemiBold();
+                                var colorBackup = miReporte.EstadoBackup.Contains("OK") ? Colors.Green.Darken2 : (miReporte.EstadoBackup.Contains("Fall") ? Colors.Red.Darken2 : Colors.Grey.Medium);
+                                string textoBackup = $"{miReporte.EstadoBackup} ({miReporte.FechaUltimoBackup})";
+                                if (miReporte.EstadoBackup.Contains("Fall")) table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(textoBackup).FontColor(colorBackup).SemiBold();
+                                else table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(textoBackup).FontColor(colorBackup);
+
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Usuario ejecutor:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.UsuarioActivo);
+                            });
+
+                            // SECCIÓN 2: LIMPIEZA
+                            column.Item().PaddingTop(15).PaddingBottom(5).Text("2. Mantenimiento de Archivos Temporales").FontSize(14).SemiBold().FontColor(Colors.Blue.Darken2);
+                            column.Item().LineHorizontal(1).LineColor(Colors.Blue.Darken2);
+                            column.Item().PaddingBottom(10);
+
+                            string espacioStr = "0 MB";
+                            double mb = miReporte.BytesLiberados / 1024.0 / 1024.0;
+                            if (mb > 1024) espacioStr = $"{(mb / 1024.0):F2} GB";
+                            else espacioStr = $"{mb:F2} MB";
+
+                            column.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns => { columns.RelativeColumn(); columns.RelativeColumn(); });
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Estado de Limpieza:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.ArchivosBorrados > 0 ? "Ejecutada" : "No ejecutada o sin basura").FontColor(miReporte.ArchivosBorrados > 0 ? Colors.Green.Darken2 : Colors.Grey.Medium);
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Archivos Eliminados:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.ArchivosBorrados.ToString());
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Espacio Liberado:").SemiBold();
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(espacioStr);
+                            });
+
+                            // SECCIÓN 3: DISCOS
+                            column.Item().PaddingTop(15).PaddingBottom(5).Text("3. Estado de Salud de Discos (S.M.A.R.T.)").FontSize(14).SemiBold().FontColor(Colors.Blue.Darken2);
+                            column.Item().LineHorizontal(1).LineColor(Colors.Blue.Darken2);
+                            column.Item().PaddingBottom(10);
+
+                            if (miReporte.Discos.Count == 0) column.Item().Text("No se ha ejecutado el análisis de hardware o no se detectaron discos.").FontColor(Colors.Grey.Medium).Italic();
+                            else
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns => { columns.RelativeColumn(3); columns.RelativeColumn(1); columns.RelativeColumn(2); });
+                                    table.Cell().Background(Colors.Grey.Lighten3).BorderBottom(1).BorderColor(Colors.Grey.Darken1).Padding(5).Text("Modelo del Disco").SemiBold();
+                                    table.Cell().Background(Colors.Grey.Lighten3).BorderBottom(1).BorderColor(Colors.Grey.Darken1).Padding(5).Text("Interfaz").SemiBold();
+                                    table.Cell().Background(Colors.Grey.Lighten3).BorderBottom(1).BorderColor(Colors.Grey.Darken1).Padding(5).Text("Estado").SemiBold();
+
+                                    foreach (var disco in miReporte.Discos)
+                                    {
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(disco.Modelo);
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(disco.Tipo);
+                                        var colorE = disco.Estado.Contains("OK") ? Colors.Green.Darken2 : Colors.Red.Darken2;
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(disco.Estado).FontColor(colorE).SemiBold();
+                                    }
+                                });
+                            }
+
+                            // SECCIÓN 4: WINDOWS UPDATE
+                            column.Item().PaddingTop(15).PaddingBottom(5).Text("4. Estado de Actualizaciones (Windows Update)").FontSize(14).SemiBold().FontColor(Colors.Blue.Darken2);
+                            column.Item().LineHorizontal(1).LineColor(Colors.Blue.Darken2);
+                            column.Item().PaddingBottom(10);
+
+                            if (!miReporte.UpdatesEjecutado) column.Item().Text("No se ha ejecutado la búsqueda de actualizaciones en esta sesión.").FontColor(Colors.Grey.Medium).Italic();
+                            else
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns => { columns.RelativeColumn(); columns.RelativeColumn(); });
+                                    if (miReporte.UpdatesPendientes == 0)
+                                    {
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Estado del Servidor:").SemiBold();
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Actualizado. No hay parches pendientes.").FontColor(Colors.Green.Darken2);
+                                    }
+                                    else
+                                    {
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Actualizaciones Instaladas:").SemiBold();
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.UpdatesInstalados.ToString());
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text("Reinicio Requerido:").SemiBold();
+                                        var colorR = miReporte.RequiereReinicio ? Colors.Orange.Darken2 : Colors.Green.Darken2;
+                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(miReporte.RequiereReinicio ? "SÍ (Pendiente por el administrador)" : "NO").FontColor(colorR).SemiBold();
+
+                                        table.Cell().PaddingTop(10).Text("Parches procesados:").SemiBold();
+                                        table.Cell();
+                                        foreach (string nombreUpdate in miReporte.NombresUpdates)
+                                        {
+                                            table.Cell().PaddingLeft(10).Text("• " + nombreUpdate).FontSize(9).FontColor(Colors.Grey.Darken2);
+                                            table.Cell();
+                                        }
+                                    }
+                                });
+                            }
                         });
 
-                        // 3. PIE DE PÁGINA
                         page.Footer().AlignCenter().Text(x =>
                         {
                             x.Span("Página ");
@@ -287,18 +401,73 @@ namespace CopicanariasServerReport
                 }).GeneratePdf(rutaArchivo);
 
                 rtbLog.AppendText($">>> ¡ÉXITO! PDF guardado en el Escritorio.\n");
-
-                // Ordenamos a Windows que abra el PDF automáticamente para verlo
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = rutaArchivo,
-                    UseShellExecute = true
-                });
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = rutaArchivo, UseShellExecute = true });
             }
-            catch (Exception ex)
-            {
-                rtbLog.AppendText($">>> ERROR al generar el PDF: {ex.Message}\n");
-            }
+            catch (Exception ex) { rtbLog.AppendText($">>> ERROR al generar el PDF: {ex.Message}\n"); }
         }
+
+        // FUNCIÓN AUXILIAR RECURSIVA PARA LIMPIEZA
+        private (int Archivos, long Bytes) LimpiarDirectorio(string ruta)
+        {
+            int contadorArchivos = 0; long contadorBytes = 0;
+            if (!System.IO.Directory.Exists(ruta)) return (contadorArchivos, contadorBytes);
+            try
+            {
+                foreach (string archivo in System.IO.Directory.GetFiles(ruta))
+                {
+                    try
+                    {
+                        long tamano = new System.IO.FileInfo(archivo).Length;
+                        System.IO.File.SetAttributes(archivo, System.IO.FileAttributes.Normal);
+                        System.IO.File.Delete(archivo);
+                        contadorArchivos++; contadorBytes += tamano;
+                    }
+                    catch { }
+                }
+                foreach (string carpeta in System.IO.Directory.GetDirectories(ruta))
+                {
+                    var res = LimpiarDirectorio(carpeta);
+                    contadorArchivos += res.Archivos; contadorBytes += res.Bytes;
+                    try { System.IO.Directory.Delete(carpeta, false); } catch { }
+                }
+            }
+            catch { }
+            return (contadorArchivos, contadorBytes);
+        }
+    }
+
+    // --- ESTRUCTURAS DE DATOS ---
+    public class DiscoInfo
+    {
+        public string Modelo { get; set; } = string.Empty;
+        public string Tipo { get; set; } = string.Empty;
+        public string Estado { get; set; } = string.Empty;
+    }
+
+    public class DatosServidor
+    {
+        public string NombreServidor { get; set; } = Environment.MachineName;
+        public string SistemaOperativo { get; set; } = string.Empty;
+        public string Arquitectura { get; set; } = Environment.Is64BitOperatingSystem ? "x64" : "x86";
+        public string UsuarioActivo { get; set; } = Environment.UserName;
+        public string FechaHora { get; set; } = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+
+        public string MemoriaRAM { get; set; } = string.Empty;
+        public string EspacioDiscoC { get; set; } = string.Empty;
+        public double PorcentajeLibreC { get; set; } = 100;
+
+        public string EstadoBackup { get; set; } = "Desconocido";
+        public string FechaUltimoBackup { get; set; } = "--/--/----";
+
+        public int ArchivosBorrados { get; set; } = 0;
+        public long BytesLiberados { get; set; } = 0;
+
+        public List<DiscoInfo> Discos { get; set; } = new List<DiscoInfo>();
+
+        public bool UpdatesEjecutado { get; set; } = false;
+        public int UpdatesPendientes { get; set; } = 0;
+        public int UpdatesInstalados { get; set; } = 0;
+        public bool RequiereReinicio { get; set; } = false;
+        public List<string> NombresUpdates { get; set; } = new List<string>();
     }
 }

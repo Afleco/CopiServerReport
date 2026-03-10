@@ -25,6 +25,7 @@
             btnUpdate = new Button();
             btnReport = new Button();
             rtbLog = new RichTextBox();
+            btnAuto = new Button();
             panelHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).BeginInit();
             SuspendLayout();
@@ -61,7 +62,6 @@
             pictureBoxLogo.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBoxLogo.TabIndex = 0;
             pictureBoxLogo.TabStop = false;
-            pictureBoxLogo.Click += pictureBoxLogo_Click;
             // 
             // btnCleanTemp
             // 
@@ -87,7 +87,7 @@
             btnSmart.FlatStyle = FlatStyle.Flat;
             btnSmart.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnSmart.ForeColor = SystemColors.Control;
-            btnSmart.Location = new Point(30, 180);
+            btnSmart.Location = new Point(30, 179);
             btnSmart.Name = "btnSmart";
             btnSmart.Size = new Size(300, 50);
             btnSmart.TabIndex = 2;
@@ -103,7 +103,7 @@
             btnUpdate.FlatStyle = FlatStyle.Flat;
             btnUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnUpdate.ForeColor = SystemColors.Control;
-            btnUpdate.Location = new Point(30, 250);
+            btnUpdate.Location = new Point(30, 248);
             btnUpdate.Name = "btnUpdate";
             btnUpdate.Size = new Size(300, 50);
             btnUpdate.TabIndex = 3;
@@ -113,13 +113,13 @@
             // 
             // btnReport
             // 
-            btnReport.BackColor = Color.Crimson;
+            btnReport.BackColor = Color.DarkBlue;
             btnReport.Cursor = Cursors.Hand;
             btnReport.FlatAppearance.BorderSize = 0;
             btnReport.FlatStyle = FlatStyle.Flat;
             btnReport.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             btnReport.ForeColor = Color.White;
-            btnReport.Location = new Point(30, 360);
+            btnReport.Location = new Point(30, 316);
             btnReport.Name = "btnReport";
             btnReport.Size = new Size(300, 60);
             btnReport.TabIndex = 4;
@@ -135,26 +135,46 @@
             rtbLog.Location = new Point(360, 110);
             rtbLog.Name = "rtbLog";
             rtbLog.ReadOnly = true;
-            rtbLog.Size = new Size(390, 310);
+            rtbLog.Size = new Size(412, 366);
             rtbLog.TabIndex = 5;
             rtbLog.Text = ">>> Sistema de Mantenimiento Inicializado.\n>>> Esperando órdenes del administrador...\n";
+            // 
+            // btnAuto
+            // 
+            btnAuto.BackColor = Color.Crimson;
+            btnAuto.BackgroundImageLayout = ImageLayout.Zoom;
+            btnAuto.Cursor = Cursors.Hand;
+            btnAuto.FlatAppearance.BorderSize = 0;
+            btnAuto.FlatStyle = FlatStyle.Flat;
+            btnAuto.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            btnAuto.ForeColor = Color.WhiteSmoke;
+            btnAuto.Location = new Point(30, 399);
+            btnAuto.Name = "btnAuto";
+            btnAuto.Size = new Size(300, 60);
+            btnAuto.TabIndex = 6;
+            btnAuto.Text = "Realizar todos los pasos";
+            btnAuto.UseVisualStyleBackColor = false;
+            btnAuto.Click += btnAuto_Click;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.White;
-            ClientSize = new Size(784, 461);
+            ClientSize = new Size(784, 498);
+            Controls.Add(btnAuto);
             Controls.Add(rtbLog);
             Controls.Add(btnReport);
             Controls.Add(btnUpdate);
             Controls.Add(btnSmart);
             Controls.Add(btnCleanTemp);
             Controls.Add(panelHeader);
+            ForeColor = SystemColors.ButtonFace;
             Name = "Form1";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Copicanarias Server Report";
             Load += Form1_Load_1;
+            Click += btnAuto_Click;
             panelHeader.ResumeLayout(false);
             panelHeader.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).EndInit();
@@ -172,5 +192,6 @@
         private System.Windows.Forms.Button btnUpdate;
         private System.Windows.Forms.Button btnReport;
         private System.Windows.Forms.RichTextBox rtbLog;
+        private Button btnAuto;
     }
 }
