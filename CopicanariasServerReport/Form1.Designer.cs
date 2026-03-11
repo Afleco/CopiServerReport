@@ -26,12 +26,12 @@
             btnReport = new Button();
             btnAuto = new Button();
             rtbLog = new RichTextBox();
-
             panelHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).BeginInit();
             SuspendLayout();
-
-            // ── panelHeader ──────────────────────────────────────
+            // 
+            // panelHeader
+            // 
             panelHeader.BackColor = Color.White;
             panelHeader.Controls.Add(lblTituloCabecera);
             panelHeader.Controls.Add(pictureBoxLogo);
@@ -40,8 +40,9 @@
             panelHeader.Name = "panelHeader";
             panelHeader.Size = new Size(800, 93);
             panelHeader.TabIndex = 0;
-
-            // ── lblTituloCabecera ─────────────────────────────────
+            // 
+            // lblTituloCabecera
+            // 
             lblTituloCabecera.AutoSize = true;
             lblTituloCabecera.BackColor = Color.White;
             lblTituloCabecera.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
@@ -51,8 +52,9 @@
             lblTituloCabecera.Size = new Size(266, 30);
             lblTituloCabecera.TabIndex = 1;
             lblTituloCabecera.Text = "Panel de Mantenimiento";
-
-            // ── pictureBoxLogo ────────────────────────────────────
+            // 
+            // pictureBoxLogo
+            // 
             pictureBoxLogo.Image = Properties.Resources.copicanariasicon;
             pictureBoxLogo.Location = new Point(103, 0);
             pictureBoxLogo.Name = "pictureBoxLogo";
@@ -60,17 +62,21 @@
             pictureBoxLogo.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBoxLogo.TabIndex = 0;
             pictureBoxLogo.TabStop = false;
-
-            // ── lblTecnico ────────────────────────────────────────
+            // 
+            // lblTecnico
+            // 
             lblTecnico.AutoSize = true;
             lblTecnico.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblTecnico.ForeColor = Color.DimGray;
             lblTecnico.Location = new Point(30, 105);
             lblTecnico.Name = "lblTecnico";
+            lblTecnico.Size = new Size(124, 15);
             lblTecnico.TabIndex = 7;
             lblTecnico.Text = "Técnico Responsable:";
-
-            // ── cmbTecnico ────────────────────────────────────────
+            // 
+            // cmbTecnico
+            // 
+            cmbTecnico.BackColor = SystemColors.Menu;
             cmbTecnico.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbTecnico.Font = new Font("Segoe UI", 10F);
             cmbTecnico.FormattingEnabled = true;
@@ -78,8 +84,9 @@
             cmbTecnico.Name = "cmbTecnico";
             cmbTecnico.Size = new Size(300, 25);
             cmbTecnico.TabIndex = 8;
-
-            // ── btnCleanTemp ──────────────────────────────────────
+            // 
+            // btnCleanTemp
+            // 
             btnCleanTemp.BackColor = Color.DarkBlue;
             btnCleanTemp.Cursor = Cursors.Hand;
             btnCleanTemp.FlatAppearance.BorderSize = 0;
@@ -93,8 +100,9 @@
             btnCleanTemp.Text = "1. Limpiar Archivos Temporales";
             btnCleanTemp.UseVisualStyleBackColor = false;
             btnCleanTemp.Click += btnCleanTemp_Click;
-
-            // ── btnSmart ──────────────────────────────────────────
+            // 
+            // btnSmart
+            // 
             btnSmart.BackColor = Color.DarkBlue;
             btnSmart.Cursor = Cursors.Hand;
             btnSmart.FlatAppearance.BorderSize = 0;
@@ -108,8 +116,9 @@
             btnSmart.Text = "2. Test S.M.A.R.T. de Discos";
             btnSmart.UseVisualStyleBackColor = false;
             btnSmart.Click += btnSmart_Click;
-
-            // ── btnUpdate ─────────────────────────────────────────
+            // 
+            // btnUpdate
+            // 
             btnUpdate.BackColor = Color.DarkBlue;
             btnUpdate.Cursor = Cursors.Hand;
             btnUpdate.FlatAppearance.BorderSize = 0;
@@ -123,8 +132,9 @@
             btnUpdate.Text = "3. Analizar Windows Update";
             btnUpdate.UseVisualStyleBackColor = false;
             btnUpdate.Click += btnUpdate_Click;
-
-            // ── btnAbrirUpdate ────────────────────────────────────
+            // 
+            // btnAbrirUpdate
+            // 
             btnAbrirUpdate.BackColor = Color.SlateGray;
             btnAbrirUpdate.Cursor = Cursors.Hand;
             btnAbrirUpdate.FlatAppearance.BorderSize = 0;
@@ -138,8 +148,9 @@
             btnAbrirUpdate.Text = "Abrir Panel de Windows Update";
             btnAbrirUpdate.UseVisualStyleBackColor = false;
             btnAbrirUpdate.Click += btnAbrirUpdate_Click;
-
-            // ── btnReport ─────────────────────────────────────────
+            // 
+            // btnReport
+            // 
             btnReport.BackColor = Color.ForestGreen;
             btnReport.Cursor = Cursors.Hand;
             btnReport.FlatAppearance.BorderSize = 0;
@@ -153,8 +164,9 @@
             btnReport.Text = "📄 Generar Informe PDF";
             btnReport.UseVisualStyleBackColor = false;
             btnReport.Click += btnReport_Click;
-
-            // ── btnAuto ───────────────────────────────────────────
+            // 
+            // btnAuto
+            // 
             btnAuto.BackColor = Color.Crimson;
             btnAuto.Cursor = Cursors.Hand;
             btnAuto.FlatAppearance.BorderSize = 0;
@@ -168,8 +180,9 @@
             btnAuto.Text = "⚡ Realizar Mantenimiento Total";
             btnAuto.UseVisualStyleBackColor = false;
             btnAuto.Click += btnAuto_Click;
-
-            // ── rtbLog ────────────────────────────────────────────
+            // 
+            // rtbLog
+            // 
             rtbLog.BackColor = Color.FromArgb(30, 30, 30);
             rtbLog.Font = new Font("Consolas", 10F);
             rtbLog.ForeColor = Color.LimeGreen;
@@ -179,11 +192,12 @@
             rtbLog.Size = new Size(420, 385);
             rtbLog.TabIndex = 5;
             rtbLog.Text = ">>> Sistema de Mantenimiento Inicializado.\n>>> Esperando órdenes del administrador...\n";
-
-            // ── Form1 ─────────────────────────────────────────────
+            // 
+            // Form1
+            // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            BackColor = Color.WhiteSmoke;
+            BackColor = Color.White;
             ClientSize = new Size(800, 515);
             Controls.Add(btnAbrirUpdate);
             Controls.Add(cmbTecnico);
@@ -201,7 +215,6 @@
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Copicanarias Server Report";
             Load += Form1_Load;
-
             panelHeader.ResumeLayout(false);
             panelHeader.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).EndInit();
