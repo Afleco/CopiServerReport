@@ -33,6 +33,18 @@ namespace CopicanariasServerReport
         public string Ruta { get; set; } = "";
     }
 
+    // Información enriquecida de un dispositivo/driver con error
+    public class DriverInfo
+    {
+        public string Nombre { get; set; } = "";
+        public string Fabricante { get; set; } = "";
+        public int CodigoError { get; set; } = 0;
+        public string DescripcionError { get; set; } = "";
+        public string ProveedorDriver { get; set; } = "Sin información";
+        public string VersionDriver { get; set; } = "Sin driver instalado";
+        public bool TieneDriver { get; set; } = false;
+    }
+
     public class DatosServidor
     {
         public string TecnicoResponsable { get; set; } = "No asignado";
@@ -64,7 +76,7 @@ namespace CopicanariasServerReport
 
         public List<RedInfo> InterfacesRed { get; set; } = new();
         public List<UnidadRedInfo> UnidadesRed { get; set; } = new();
-        public List<string> DriversConError { get; set; } = new();
+        public List<DriverInfo> Drivers { get; set; } = new(); // sustituye DriversConError
 
         public string VersionJava { get; set; } = "";
         public string JavaVersionOnline { get; set; } = "";

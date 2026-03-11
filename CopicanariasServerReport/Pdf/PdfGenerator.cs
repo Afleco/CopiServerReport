@@ -194,7 +194,7 @@ namespace CopicanariasServerReport.Pdf
 
                         // ── 7. CONTROLADORES (DRIVERS) ────────────────────
                         Seccion(col, "7. Controladores (Drivers)");
-                        if (r.DriversConError.Count == 0)
+                        if (r.Drivers.Count == 0)
                         {
                             col.Item().PaddingLeft(4)
                                 .Text("✅ Todos los dispositivos funcionan correctamente.")
@@ -202,11 +202,39 @@ namespace CopicanariasServerReport.Pdf
                         }
                         else
                         {
-                            col.Item().PaddingLeft(4)
-                                .Text($"⚠️  {r.DriversConError.Count} dispositivo(s) con error:")
+                            col.Item().PaddingLeft(4).PaddingBottom(4)
+                                .Text($"⚠️  {r.Drivers.Count} dispositivo(s) con problemas detectados:")
                                 .FontColor(Colors.Red.Darken2).SemiBold();
-                            foreach (var d in r.DriversConError)
-                                col.Item().PaddingLeft(10).Text($"• {d}").FontSize(8).FontColor(Colors.Red.Darken2);
+
+                            col.Item().Table(t =>
+                            {
+                                t.ColumnsDefinition(c =>
+                                {
+                                    c.RelativeColumn(3); // Dispositivo
+                                    c.RelativeColumn(2); // Fabricante
+                                    c.RelativeColumn(1); // Código
+                                    c.RelativeColumn(4); // Descripción del error
+                                    c.RelativeColumn(2); // Versión driver
+                                    c.RelativeColumn(2); // Proveedor
+                                });
+
+                                foreach (var h in new[] { "Dispositivo", "Fabricante", "Cód.", "Descripción del error", "Versión driver", "Proveedor" })
+                                    t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(7.5f);
+
+                                foreach (var d in r.Drivers)
+                                {
+                                    string versionTxt = d.TieneDriver ? d.VersionDriver : "Sin driver";
+                                    string proveedorTxt = d.TieneDriver ? d.ProveedorDriver : "—";
+                                    var cVersion = d.TieneDriver ? Colors.Black : Colors.Red.Darken2;
+
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Nombre).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Fabricante).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.CodigoError.ToString()).FontColor(Colors.Red.Darken2).SemiBold().FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.DescripcionError).FontColor(Colors.Red.Darken2).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(versionTxt).FontColor(cVersion).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(proveedorTxt).FontSize(7.5f);
+                                }
+                            });
                         }
 
                         // ── 8. ALMACENAMIENTO ─────────────────────────────

@@ -21,7 +21,7 @@ namespace CopicanariasServerReport.Services
             RecopilarAntivirus(reporte);
             RecopilarRed(reporte);
             RecopilarUnidadesRed(reporte);
-            RecopilarDriversConError(reporte);
+            RecopilarDrivers(reporte);
             RecopilarEstadoBackup(reporte);
         }
 
@@ -157,19 +157,11 @@ namespace CopicanariasServerReport.Services
             catch { }
         }
 
-        // ── Drivers con error ────────────────────────────────────────
-        private static void RecopilarDriversConError(DatosServidor reporte)
+        // ── Drivers con error (delegado a DriverService) ─────────────
+        private static void RecopilarDrivers(DatosServidor reporte)
         {
-            reporte.DriversConError.Clear();
-            try
-            {
-                using var s = new ManagementObjectSearcher(
-                    "SELECT Name FROM Win32_PnPEntity WHERE ConfigManagerErrorCode <> 0");
-                foreach (ManagementObject d in s.Get())
-                    using (d)
-                        reporte.DriversConError.Add(d["Name"]?.ToString() ?? "Dispositivo desconocido");
-            }
-            catch { }
+            reporte.Drivers.Clear();
+            reporte.Drivers.AddRange(DriverService.Escanear());
         }
 
         // ── Estado de Backup de Windows ──────────────────────────────

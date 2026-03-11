@@ -26,6 +26,8 @@
             btnReport = new Button();
             btnAuto = new Button();
             rtbLog = new RichTextBox();
+            btnDrivers = new Button();
+            btnDeviceManager = new Button();
             panelHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).BeginInit();
             SuspendLayout();
@@ -38,7 +40,7 @@
             panelHeader.Dock = DockStyle.Top;
             panelHeader.Location = new Point(0, 0);
             panelHeader.Name = "panelHeader";
-            panelHeader.Size = new Size(800, 93);
+            panelHeader.Size = new Size(868, 93);
             panelHeader.TabIndex = 0;
             // 
             // lblTituloCabecera
@@ -47,7 +49,7 @@
             lblTituloCabecera.BackColor = Color.White;
             lblTituloCabecera.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
             lblTituloCabecera.ForeColor = Color.DarkBlue;
-            lblTituloCabecera.Location = new Point(265, 28);
+            lblTituloCabecera.Location = new Point(301, 29);
             lblTituloCabecera.Name = "lblTituloCabecera";
             lblTituloCabecera.Size = new Size(266, 30);
             lblTituloCabecera.TabIndex = 1;
@@ -119,17 +121,17 @@
             // 
             // btnUpdate
             // 
-            btnUpdate.BackColor = Color.DarkBlue;
+            btnUpdate.BackColor = Color.RoyalBlue;
             btnUpdate.Cursor = Cursors.Hand;
             btnUpdate.FlatAppearance.BorderSize = 0;
             btnUpdate.FlatStyle = FlatStyle.Flat;
             btnUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnUpdate.ForeColor = SystemColors.Control;
-            btnUpdate.Location = new Point(30, 275);
+            btnUpdate.Location = new Point(30, 293);
             btnUpdate.Name = "btnUpdate";
             btnUpdate.Size = new Size(300, 45);
             btnUpdate.TabIndex = 3;
-            btnUpdate.Text = "3. Analizar Windows Update";
+            btnUpdate.Text = "🔄  Re-analizar Windows Update";
             btnUpdate.UseVisualStyleBackColor = false;
             btnUpdate.Click += btnUpdate_Click;
             // 
@@ -141,7 +143,7 @@
             btnAbrirUpdate.FlatStyle = FlatStyle.Flat;
             btnAbrirUpdate.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnAbrirUpdate.ForeColor = Color.White;
-            btnAbrirUpdate.Location = new Point(30, 325);
+            btnAbrirUpdate.Location = new Point(30, 344);
             btnAbrirUpdate.Name = "btnAbrirUpdate";
             btnAbrirUpdate.Size = new Size(300, 30);
             btnAbrirUpdate.TabIndex = 9;
@@ -157,9 +159,9 @@
             btnReport.FlatStyle = FlatStyle.Flat;
             btnReport.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             btnReport.ForeColor = Color.White;
-            btnReport.Location = new Point(30, 370);
+            btnReport.Location = new Point(30, 512);
             btnReport.Name = "btnReport";
-            btnReport.Size = new Size(300, 55);
+            btnReport.Size = new Size(300, 47);
             btnReport.TabIndex = 4;
             btnReport.Text = "📄 Generar Informe PDF";
             btnReport.UseVisualStyleBackColor = false;
@@ -173,32 +175,67 @@
             btnAuto.FlatStyle = FlatStyle.Flat;
             btnAuto.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             btnAuto.ForeColor = Color.WhiteSmoke;
-            btnAuto.Location = new Point(30, 440);
+            btnAuto.Location = new Point(439, 512);
             btnAuto.Name = "btnAuto";
-            btnAuto.Size = new Size(300, 55);
+            btnAuto.Size = new Size(304, 70);
             btnAuto.TabIndex = 6;
-            btnAuto.Text = "⚡ Realizar Mantenimiento Total";
+            btnAuto.Text = "⚡ Realizar Todos Los Pasos";
             btnAuto.UseVisualStyleBackColor = false;
             btnAuto.Click += btnAuto_Click;
             // 
             // rtbLog
             // 
             rtbLog.BackColor = Color.FromArgb(30, 30, 30);
-            rtbLog.Font = new Font("Consolas", 10F);
-            rtbLog.ForeColor = Color.LimeGreen;
+            rtbLog.BackColor = Color.FromArgb(238, 241, 248);
+            rtbLog.Font = new Font("Segoe UI", 9.5F);
+            rtbLog.ForeColor = Color.FromArgb(40, 40, 40);
+            rtbLog.Text = "";
             rtbLog.Location = new Point(350, 110);
             rtbLog.Name = "rtbLog";
             rtbLog.ReadOnly = true;
-            rtbLog.Size = new Size(420, 385);
+            rtbLog.Size = new Size(506, 385);
             rtbLog.TabIndex = 5;
-            rtbLog.Text = ">>> Sistema de Mantenimiento Inicializado.\n>>> Esperando órdenes del administrador...\n";
+            // 
+            // btnDrivers
+            // 
+            btnDrivers.BackColor = Color.RoyalBlue;
+            btnDrivers.Cursor = Cursors.Hand;
+            btnDrivers.FlatAppearance.BorderSize = 0;
+            btnDrivers.FlatStyle = FlatStyle.Flat;
+            btnDrivers.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnDrivers.ForeColor = SystemColors.Control;
+            btnDrivers.Location = new Point(30, 393);
+            btnDrivers.Name = "btnDrivers";
+            btnDrivers.Size = new Size(300, 45);
+            btnDrivers.TabIndex = 10;
+            btnDrivers.Text = "🔄 Re-escanear Drivers";
+            btnDrivers.UseVisualStyleBackColor = false;
+            btnDrivers.Click += btnDrivers_Click;
+            // 
+            // btnDeviceManager
+            // 
+            btnDeviceManager.BackColor = Color.SlateGray;
+            btnDeviceManager.Cursor = Cursors.Hand;
+            btnDeviceManager.FlatAppearance.BorderSize = 0;
+            btnDeviceManager.FlatStyle = FlatStyle.Flat;
+            btnDeviceManager.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnDeviceManager.ForeColor = Color.White;
+            btnDeviceManager.Location = new Point(30, 444);
+            btnDeviceManager.Name = "btnDeviceManager";
+            btnDeviceManager.Size = new Size(300, 30);
+            btnDeviceManager.TabIndex = 11;
+            btnDeviceManager.Text = "Abrir Administrador de Dispositivos";
+            btnDeviceManager.UseVisualStyleBackColor = false;
+            btnDeviceManager.Click += btnDeviceManager_Click;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.White;
-            ClientSize = new Size(800, 515);
+            ClientSize = new Size(868, 594);
+            Controls.Add(btnDeviceManager);
+            Controls.Add(btnDrivers);
             Controls.Add(btnAbrirUpdate);
             Controls.Add(cmbTecnico);
             Controls.Add(lblTecnico);
@@ -236,5 +273,7 @@
         private System.Windows.Forms.Button btnReport;
         private System.Windows.Forms.RichTextBox rtbLog;
         private System.Windows.Forms.Button btnAuto;
+        private Button btnDrivers;
+        private Button btnDeviceManager;
     }
 }
