@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Management;
 using System.Net.Http;
@@ -57,11 +59,14 @@ namespace CopicanariasServerReport.Services
             catch { }
         }
 
-        // ── Discos lógicos (todos los volúmenes fijos montados) ───────
+        // ── Discos lógicos (volúmenes fijos + extraíbles montados) ───
         private static void RecopilarDiscosLogicos(DatosServidor reporte)
         {
             reporte.DiscosLogicos.Clear();
-            foreach (var d in DriveInfo.GetDrives().Where(x => x.IsReady && x.DriveType == DriveType.Fixed))
+            foreach (var d in DriveInfo.GetDrives()
+                .Where(x => x.IsReady &&
+                           (x.DriveType == DriveType.Fixed ||
+                            x.DriveType == DriveType.Removable)))
             {
                 double total = d.TotalSize / 1073741824.0;
                 double libre = d.AvailableFreeSpace / 1073741824.0;
@@ -76,11 +81,17 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Antivirus ────────────────────────────────────────────────
+        // Estrategia en dos capas:
+        //   1) SecurityCenter2       — Windows 10/11 de escritorio
+        //   2) MSFT_MpComputerStatus — Windows Defender en Server y Win10/11
         private static void RecopilarAntivirus(DatosServidor reporte)
         {
-            reporte.AntivirusNombre = "Windows Defender (Predeterminado)";
-            reporte.AntivirusEstado = "Activo";
+            reporte.AntivirusNombre = "";
+            reporte.AntivirusEstado = "";
             reporte.AntivirusRuta = "";
+            bool encontrado = false;
+
+            // ── Capa 1: SecurityCenter2 (solo disponible en ediciones de escritorio) ──
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -89,7 +100,7 @@ namespace CopicanariasServerReport.Services
                 foreach (ManagementObject av in s.Get())
                     using (av)
                     {
-                        reporte.AntivirusNombre = av["displayName"]?.ToString() ?? reporte.AntivirusNombre;
+                        reporte.AntivirusNombre = av["displayName"]?.ToString() ?? "";
                         reporte.AntivirusRuta = av["pathToSignedProductExe"]?.ToString() ?? "";
                         try
                         {
@@ -100,11 +111,116 @@ namespace CopicanariasServerReport.Services
                                 ? (alDia ? "Activo y actualizado" : "Activo — Definiciones desactualizadas")
                                 : "Deshabilitado ⚠️";
                         }
-                        catch { reporte.AntivirusEstado = "Monitorizando"; }
-                        break; // primer AV registrado
+                        catch { reporte.AntivirusEstado = "Activo (estado no determinado)"; }
+                        encontrado = true;
+                        break;
                     }
             }
-            catch { /* Windows Server no tiene SecurityCenter2 — se queda con Defender por defecto */ }
+            catch { /* namespace no disponible en Windows Server — continuar */ }
+
+            if (encontrado) return;
+
+            // ── Capa 2: MSFT_MpComputerStatus (Defender en Server y Win10/11) ──
+            try
+            {
+                using var s = new ManagementObjectSearcher(
+                    "root\\Microsoft\\Windows\\Defender",
+                    "SELECT AMProductVersion, AMRunningMode, AntivirusEnabled, " +
+                    "AntivirusSignatureAge FROM MSFT_MpComputerStatus");
+                foreach (ManagementObject mp in s.Get())
+                    using (mp)
+                    {
+                        string version = mp["AMProductVersion"]?.ToString() ?? "";
+                        string modo = mp["AMRunningMode"]?.ToString() ?? "";
+                        bool avActivo = false;
+                        try { avActivo = Convert.ToBoolean(mp["AntivirusEnabled"] ?? false); } catch { }
+                        uint sigAge = 0;
+                        try { sigAge = Convert.ToUInt32(mp["AntivirusSignatureAge"] ?? 0u); } catch { }
+
+                        reporte.AntivirusNombre = string.IsNullOrEmpty(version)
+                            ? "Windows Defender"
+                            : $"Windows Defender (v{version})";
+
+                        if (!avActivo)
+                            reporte.AntivirusEstado = "Deshabilitado ⚠️";
+                        else if (modo == "Passive Mode" || modo == "SxS Passive Mode")
+                            reporte.AntivirusEstado = "Pasivo (otro AV activo en el sistema)";
+                        else
+                            reporte.AntivirusEstado = sigAge > 7
+                                ? $"Activo — Definiciones con {sigAge} días de antigüedad ⚠️"
+                                : "Activo y actualizado";
+
+                        encontrado = true;
+                        break;
+                    }
+            }
+            catch { }
+
+            // ── Capa 3: búsqueda de servicios de AV de terceros (Windows Server sin SecurityCenter2) ──
+            if (!encontrado)
+                encontrado = BuscarAvTerceros(reporte);
+
+            if (!encontrado)
+            {
+                reporte.AntivirusNombre = "No detectado";
+                reporte.AntivirusEstado = "No fue posible consultar el estado del antivirus";
+            }
+        }
+
+        // Mapa de nombre de servicio → nombre comercial del AV.
+        // Cubre los productos más habituales en entornos empresariales Windows Server.
+        private static readonly Dictionary<string, string> _avServicios =
+            new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "ekrn",                        "ESET Security" },
+            { "EsetService",                 "ESET Security" },
+            { "AVP",                         "Kaspersky Endpoint Security" },
+            { "klnagent",                    "Kaspersky Network Agent" },
+            { "Sophos Agent",                "Sophos Endpoint" },
+            { "SAVService",                  "Sophos Anti-Virus" },
+            { "mfemms",                      "Trellix / McAfee Endpoint Security" },
+            { "McAfeeFramework",             "McAfee Agent" },
+            { "SepMasterService",            "Symantec Endpoint Protection" },
+            { "ntrtscan",                    "Trend Micro OfficeScan" },
+            { "TmListen",                    "Trend Micro" },
+            { "EPIntegrationService",        "Bitdefender GravityZone" },
+            { "EPSecurityService",           "Bitdefender Endpoint Security" },
+            { "CSFalconService",             "CrowdStrike Falcon" },
+            { "CbDefense",                   "VMware Carbon Black" },
+            { "MBAMService",                 "Malwarebytes" },
+            { "AvastSvc",                    "Avast Business Antivirus" },
+            { "CylanceSvc",                  "Cylance PROTECT" },
+            { "SentinelAgent",               "SentinelOne" },
+            { "WRSVC",                       "Webroot SecureAnywhere" },
+            // Panda Security / WatchGuard EPDR
+            { "PSANHost",                    "Panda / WatchGuard Endpoint Security" },
+            { "NanoServiceMain",             "Panda Adaptive Defense / WatchGuard EPDR" },
+            { "PSANCU",                      "Panda / WatchGuard Cloud Agent" },
+        };
+
+        private static bool BuscarAvTerceros(DatosServidor reporte)
+        {
+            try
+            {
+                using var s = new ManagementObjectSearcher(
+                    "SELECT Name, State FROM Win32_Service");
+                foreach (ManagementObject svc in s.Get())
+                    using (svc)
+                    {
+                        string nombre = svc["Name"]?.ToString() ?? "";
+                        string estado = svc["State"]?.ToString() ?? "";
+                        if (_avServicios.TryGetValue(nombre, out string producto))
+                        {
+                            reporte.AntivirusNombre = producto;
+                            reporte.AntivirusEstado = estado == "Running"
+                                ? "Activo (servicio en ejecución)"
+                                : $"Servicio detectado — Estado: {estado}";
+                            return true;
+                        }
+                    }
+            }
+            catch { }
+            return false;
         }
 
         // ── Interfaces de red activas ────────────────────────────────
@@ -181,13 +297,17 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Estado de Backup de Windows ──────────────────────────────
-        // MSFT_WBSummary contiene directamente la fecha del último backup
-        // exitoso y su código de resultado. Es más fiable que MSFT_WBJob,
-        // que solo representa trabajos activos/programados y suele estar vacío.
+        // Estrategia en tres capas (primera que devuelva datos gana):
+        //   1) MSFT_WBSummary   — Windows Server Backup (feature instalado en Server)
+        //   2) Event Log        — Microsoft-Windows-Backup/Operational (Server y Win10/11)
+        //                         EventID 4 = completado OK, EventID 5 = error
+        //   3) ActionHistory    — Registro backup nativo de Win10/11 desktop (no existe en Server)
         private static void RecopilarEstadoBackup(DatosServidor reporte)
         {
             reporte.EstadoBackup = "No configurado";
             reporte.FechaUltimoBackup = "--/--/----";
+
+            // ── Capa 1: MSFT_WBSummary (feature Windows Server Backup instalado) ──
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -196,29 +316,109 @@ namespace CopicanariasServerReport.Services
                 foreach (ManagementObject summary in s.Get())
                     using (summary)
                     {
-                        try
+                        string fecha = summary["LastSuccessfulBackupTime"]?.ToString();
+                        if (!string.IsNullOrEmpty(fecha))
                         {
-                            string fecha = summary["LastSuccessfulBackupTime"]?.ToString();
-                            if (!string.IsNullOrEmpty(fecha))
-                            {
-                                DateTime t = ManagementDateTimeConverter.ToDateTime(fecha);
-                                reporte.FechaUltimoBackup = t.ToString("dd/MM/yyyy HH:mm");
-
-                                uint hr = 0;
-                                try { hr = Convert.ToUInt32(summary["LastBackupResultHR"] ?? 0u); } catch { }
-                                reporte.EstadoBackup = hr == 0 ? "OK" : $"Error (0x{hr:X8})";
-                            }
-                            else
-                            {
-                                // El servicio existe pero nunca se ha ejecutado
-                                reporte.EstadoBackup = "Configurado — Sin backups previos";
-                            }
+                            DateTime t = ManagementDateTimeConverter.ToDateTime(fecha);
+                            reporte.FechaUltimoBackup = t.ToString("dd/MM/yyyy HH:mm");
+                            uint hr = 0;
+                            try { hr = Convert.ToUInt32(summary["LastBackupResultHR"] ?? 0u); } catch { }
+                            reporte.EstadoBackup = hr == 0 ? "OK" : $"Error (0x{hr:X8})";
                         }
-                        catch { }
-                        break;
+                        else
+                        {
+                            reporte.EstadoBackup = "Configurado — Sin backups previos";
+                        }
+                        return;
                     }
             }
-            catch { /* El namespace no existe si Windows Backup no está habilitado */ }
+            catch { /* namespace no existe si el feature no está instalado */ }
+
+            // ── Capa 2: Event Log Microsoft-Windows-Backup/Operational ──────────
+            // Funciona en Windows Server Y en Win10/11 sin necesitar el feature WMI.
+            // EventID 1 = backup iniciado (ignorado)
+            // EventID 4 = backup completado con éxito
+            // EventID 5 = backup completado con error
+            try
+            {
+                var query = new EventLogQuery(
+                    "Microsoft-Windows-Backup/Operational",
+                    PathType.LogName,
+                    "*[System[(EventID=4 or EventID=5)]]");
+
+                using var reader = new EventLogReader(query);
+                DateTime mejorFecha = DateTime.MinValue;
+                bool ultimoFueError = false;
+
+                EventRecord record;
+                while ((record = reader.ReadEvent()) != null)
+                    using (record)
+                    {
+                        if (record.TimeCreated.HasValue && record.TimeCreated.Value > mejorFecha)
+                        {
+                            mejorFecha = record.TimeCreated.Value;
+                            ultimoFueError = (record.Id == 5);
+                        }
+                    }
+
+                if (mejorFecha > DateTime.MinValue)
+                {
+                    reporte.FechaUltimoBackup = mejorFecha.ToString("dd/MM/yyyy HH:mm");
+                    reporte.EstadoBackup = ultimoFueError
+                        ? "Error en el último backup ⚠️"
+                        : "OK";
+                    return;
+                }
+
+                // El log existe pero no tiene eventos de resultado → configurado, nunca ejecutado
+                reporte.EstadoBackup = "Configurado — Sin backups previos";
+                return;
+            }
+            catch { /* El log no existe si Windows Backup no está habilitado en ninguna forma */ }
+
+            // ── Capa 3: ActionHistory en registro (backup nativo Win10/11 desktop) ──
+            // Esta clave NO existe en Windows Server — es el último recurso para equipos de escritorio.
+            try
+            {
+                using var baseKey = Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\WindowsBackup\ActionHistory");
+                if (baseKey != null)
+                {
+                    DateTime mejorFecha = DateTime.MinValue;
+                    bool hayError = false;
+
+                    foreach (string subNombre in baseKey.GetSubKeyNames())
+                    {
+                        using var sub = baseKey.OpenSubKey(subNombre);
+                        if (sub == null) continue;
+
+                        byte[] ftBytes = sub.GetValue("ActionItemDate") as byte[];
+                        if (ftBytes != null && ftBytes.Length == 8)
+                        {
+                            long ft = BitConverter.ToInt64(ftBytes, 0);
+                            if (ft > 0)
+                            {
+                                DateTime dt = DateTime.FromFileTime(ft);
+                                if (dt > mejorFecha) mejorFecha = dt;
+                            }
+                        }
+
+                        object resObj = sub.GetValue("ActionResultCode");
+                        if (resObj != null)
+                            try { if (Convert.ToInt32(resObj) != 0) hayError = true; } catch { }
+                    }
+
+                    if (mejorFecha > DateTime.MinValue)
+                    {
+                        reporte.FechaUltimoBackup = mejorFecha.ToString("dd/MM/yyyy HH:mm");
+                        reporte.EstadoBackup = hayError ? "Completado con errores ⚠️" : "OK";
+                        return;
+                    }
+
+                    reporte.EstadoBackup = "Configurado — Sin backups previos";
+                }
+            }
+            catch { }
         }
 
         // ── Java: detección local + consulta online (Adoptium API) ───

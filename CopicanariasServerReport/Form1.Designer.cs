@@ -108,7 +108,7 @@
             btnCleanTemp.BackColor = Color.DarkBlue;
             btnCleanTemp.Cursor = Cursors.Hand;
             btnCleanTemp.FlatAppearance.BorderSize = 0;
-            btnCleanTemp.FlatStyle = FlatStyle.Flat;
+            btnCleanTemp.FlatStyle = FlatStyle.Popup;
             btnCleanTemp.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnCleanTemp.ForeColor = SystemColors.Control;
             btnCleanTemp.Location = new Point(30, 165);
@@ -124,7 +124,7 @@
             btnSmart.BackColor = Color.DarkBlue;
             btnSmart.Cursor = Cursors.Hand;
             btnSmart.FlatAppearance.BorderSize = 0;
-            btnSmart.FlatStyle = FlatStyle.Flat;
+            btnSmart.FlatStyle = FlatStyle.Popup;
             btnSmart.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnSmart.ForeColor = SystemColors.Control;
             btnSmart.Location = new Point(30, 233);
@@ -140,7 +140,7 @@
             btnUpdate.BackColor = Color.RoyalBlue;
             btnUpdate.Cursor = Cursors.Hand;
             btnUpdate.FlatAppearance.BorderSize = 0;
-            btnUpdate.FlatStyle = FlatStyle.Flat;
+            btnUpdate.FlatStyle = FlatStyle.Popup;
             btnUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnUpdate.ForeColor = SystemColors.Control;
             btnUpdate.Location = new Point(30, 299);
@@ -156,7 +156,7 @@
             btnAbrirUpdate.BackColor = Color.SlateGray;
             btnAbrirUpdate.Cursor = Cursors.Hand;
             btnAbrirUpdate.FlatAppearance.BorderSize = 0;
-            btnAbrirUpdate.FlatStyle = FlatStyle.Flat;
+            btnAbrirUpdate.FlatStyle = FlatStyle.Popup;
             btnAbrirUpdate.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnAbrirUpdate.ForeColor = Color.White;
             btnAbrirUpdate.Location = new Point(30, 350);
@@ -172,7 +172,7 @@
             btnDrivers.BackColor = Color.RoyalBlue;
             btnDrivers.Cursor = Cursors.Hand;
             btnDrivers.FlatAppearance.BorderSize = 0;
-            btnDrivers.FlatStyle = FlatStyle.Flat;
+            btnDrivers.FlatStyle = FlatStyle.Popup;
             btnDrivers.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnDrivers.ForeColor = SystemColors.Control;
             btnDrivers.Location = new Point(30, 403);
@@ -188,7 +188,7 @@
             btnDeviceManager.BackColor = Color.SlateGray;
             btnDeviceManager.Cursor = Cursors.Hand;
             btnDeviceManager.FlatAppearance.BorderSize = 0;
-            btnDeviceManager.FlatStyle = FlatStyle.Flat;
+            btnDeviceManager.FlatStyle = FlatStyle.Popup;
             btnDeviceManager.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnDeviceManager.ForeColor = Color.White;
             btnDeviceManager.Location = new Point(30, 454);
@@ -204,7 +204,7 @@
             btnReport.BackColor = Color.ForestGreen;
             btnReport.Cursor = Cursors.Hand;
             btnReport.FlatAppearance.BorderSize = 0;
-            btnReport.FlatStyle = FlatStyle.Flat;
+            btnReport.FlatStyle = FlatStyle.Popup;
             btnReport.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             btnReport.ForeColor = Color.White;
             btnReport.Location = new Point(30, 512);
@@ -220,7 +220,7 @@
             btnAuto.BackColor = Color.Crimson;
             btnAuto.Cursor = Cursors.Hand;
             btnAuto.FlatAppearance.BorderSize = 0;
-            btnAuto.FlatStyle = FlatStyle.Flat;
+            btnAuto.FlatStyle = FlatStyle.Popup;
             btnAuto.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
             btnAuto.ForeColor = Color.WhiteSmoke;
             btnAuto.Location = new Point(412, 512);
@@ -257,7 +257,7 @@
             panelDF.Controls.Add(lblNumCerts);
             panelDF.Controls.Add(numCertificados);
             panelDF.Controls.Add(panelCertsDinamico);
-            panelDF.Location = new Point(12, 501);
+            panelDF.Location = new Point(18, 512);
             panelDF.Name = "panelDF";
             panelDF.Size = new Size(770, 122);
             panelDF.TabIndex = 20;

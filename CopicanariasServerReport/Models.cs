@@ -83,6 +83,7 @@ namespace CopicanariasServerReport
 
         public int ArchivosBorrados { get; set; } = 0;
         public long BytesLiberados { get; set; } = 0;
+        public bool LimpiezaEjecutada { get; set; } = false;
 
         public List<DiscoInfo> Discos { get; set; } = new();
         public List<DiscoLogicoInfo> DiscosLogicos { get; set; } = new();

@@ -565,6 +565,7 @@ namespace CopicanariasServerReport
 
             _reporte.ArchivosBorrados = archivosBorrados;
             _reporte.BytesLiberados = bytesLiberados;
+            _reporte.LimpiezaEjecutada = true;
             Log($">>> ✅ Limpieza completada: {archivosBorrados} archivos | {bytesLiberados / 1048576.0:F2} MB liberados\n");
         }
 

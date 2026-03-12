@@ -10,6 +10,7 @@
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <AssemblyTitle>Copicanarias Server Report (CSR)</AssemblyTitle>
     <AssemblyName>Copicanarias Server Report (CSR)</AssemblyName>
+	<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>

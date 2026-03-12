@@ -28,7 +28,7 @@ namespace CopicanariasServerReport.Pdf
                             {
                                 txt.Item().Text("INFORME DE AUDITORÍA Y MANTENIMIENTO")
                                     .SemiBold().FontSize(15).FontColor(Colors.Blue.Darken4);
-                                txt.Item().Text("Grupo Copicanarias — Departamento IT")
+                                txt.Item().Text("Grupo Copicanarias — Dpto. Sistemas")
                                     .FontSize(11).FontColor(Colors.Grey.Darken1);
                                 txt.Item().Text($"Técnico responsable: {r.TecnicoResponsable}")
                                     .FontSize(9).FontColor(Colors.Grey.Darken2);
@@ -133,15 +133,30 @@ namespace CopicanariasServerReport.Pdf
 
                         // ── 5. LIMPIEZA ───────────────────────────────────
                         Seccion(col, "5. Limpieza de Archivos Temporales");
-                        col.Item().Table(t =>
+                        if (!r.LimpiezaEjecutada)
                         {
-                            t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
-                            string espacio = r.BytesLiberados > 1073741824
-                                ? $"{r.BytesLiberados / 1073741824.0:F2} GB"
-                                : $"{r.BytesLiberados / 1048576.0:F2} MB";
-                            Fila(t, "Archivos eliminados:", $"{r.ArchivosBorrados} archivos  ({espacio} liberados)");
-                            Fila(t, "Áreas limpiadas:", "Temp usuario  ·  Temp Windows  ·  Caché Windows Update");
-                        });
+                            col.Item().PaddingLeft(4)
+                                .Text("— Limpieza no realizada en esta sesión.")
+                                .FontColor(Colors.Grey.Darken2).Italic();
+                        }
+                        else if (r.ArchivosBorrados == 0)
+                        {
+                            col.Item().PaddingLeft(4)
+                                .Text("✅ Limpieza ejecutada — No se encontraron archivos temporales.")
+                                .FontColor(Colors.Green.Darken2);
+                        }
+                        else
+                        {
+                            col.Item().Table(t =>
+                            {
+                                t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
+                                string espacio = r.BytesLiberados > 1073741824
+                                    ? $"{r.BytesLiberados / 1073741824.0:F2} GB"
+                                    : $"{r.BytesLiberados / 1048576.0:F2} MB";
+                                Fila(t, "Archivos eliminados:", $"{r.ArchivosBorrados} archivos  ({espacio} liberados)");
+                                Fila(t, "Áreas limpiadas:", "Temp usuario  ·  Temp Windows  ·  Caché Windows Update");
+                            });
+                        }
 
                         // ── 6. INTERFACES DE RED ──────────────────────────
                         Seccion(col, "6. Interfaces de Red");
@@ -329,7 +344,7 @@ namespace CopicanariasServerReport.Pdf
                                 FilaColor(t, "Digitalización certificada:",
                                     df.DigitalizacionCertificada
                                         ? "✅ Activa y funcionando"
-                                        : "No tiene", cDig);
+                                        : "— No tiene / No activa", cDig);
 
                                 // Firmas DF-Signature
                                 if (df.TieneFirmas)
