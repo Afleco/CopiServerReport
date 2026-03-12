@@ -196,13 +196,56 @@ namespace CopicanariasServerReport.Pdf
                                 .Text("Unidades de Red Mapeadas:").SemiBold().FontSize(9);
                             col.Item().Table(t =>
                             {
-                                t.ColumnsDefinition(c => { c.ConstantColumn(45); c.RelativeColumn(); });
-                                t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text("Letra").SemiBold().FontSize(8);
-                                t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text("Ruta de red").SemiBold().FontSize(8);
+                                // Actualizamos la definición de columnas para que coincida con la de discos locales
+                                t.ColumnsDefinition(c =>
+                                {
+                                    c.ConstantColumn(38);  // Letra
+                                    c.RelativeColumn(3);   // Ruta de red (más ancha para la ruta UNC)
+                                    c.RelativeColumn(1.2f);// Total
+                                    c.RelativeColumn(1.2f);// Libre
+                                    c.RelativeColumn(1);   // % Libre
+                                    c.RelativeColumn(2);   // Uso visual
+                                });
+
+                                // Nuevas cabeceras
+                                foreach (var h in new[] { "Letra", "Ruta de red", "Total", "Libre", "% Libre", "Uso visual" })
+                                    t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(8);
+
                                 foreach (var u in r.UnidadesRed)
                                 {
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(u.Letra).FontSize(8);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(u.Ruta).FontSize(8);
+                                    // Comprobamos si se pudo leer el espacio. Si TotalGB es 0, asumimos que no hay acceso.
+                                    bool accesoOk = u.TotalGB > 0;
+                                    bool critico = accesoOk && u.PorcentajeLibre < 20;
+                                    var cTexto = critico ? Colors.Red.Darken2 : Colors.Black;
+                                    var cBarra = critico ? Colors.Red.Medium : Colors.Blue.Medium;
+
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                        .Text(u.Letra).SemiBold().FontSize(8);
+
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                        .Text(u.Ruta).FontSize(8);
+
+                                    if (accesoOk)
+                                    {
+                                        t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                            .Text($"{u.TotalGB:F1} GB").FontSize(8);
+
+                                        t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                            .Text($"{u.LibreGB:F1} GB").FontColor(cTexto).FontSize(8);
+
+                                        var pctText = t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                            .Text($"{u.PorcentajeLibre:F1}%{(critico ? " ⚠️" : "")}").FontColor(cTexto).FontSize(8);
+                                        if (critico) pctText.SemiBold();
+
+                                        t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                            .Text(u.UsoVisual).FontColor(cBarra).FontSize(7);
+                                    }
+                                    else
+                                    {
+                                        // Si no se pudo leer el espacio (ej. servidor apagado o sin permisos)
+                                        t.Cell().ColumnSpan(4).BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                            .Text(u.UsoVisual).FontColor(Colors.Grey.Darken1).Italic().FontSize(8);
+                                    }
                                 }
                             });
                         }

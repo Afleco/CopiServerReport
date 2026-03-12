@@ -31,6 +31,10 @@ namespace CopicanariasServerReport
     {
         public string Letra { get; set; } = "";
         public string Ruta { get; set; } = "";
+        public double TotalGB { get; set; } = 0;
+        public double LibreGB { get; set; } = 0;
+        public double PorcentajeLibre { get; set; } = 0;
+        public string UsoVisual { get; set; } = "";
     }
 
     public class DriverInfo

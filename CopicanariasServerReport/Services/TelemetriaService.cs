@@ -282,24 +282,84 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Unidades de red mapeadas ─────────────────────────────────
+        // Importamos la API nativa de Windows para leer espacio en rutas UNC
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool GetDiskFreeSpaceEx(string lpDirectoryName, out ulong lpFreeBytesAvailable, out ulong lpTotalNumberOfBytes, out ulong lpTotalNumberOfFreeBytes);
+
+        // ── Unidades de red mapeadas (Independiente de la sesión + Espacio) ──
         private static void RecopilarUnidadesRed(DatosServidor reporte)
         {
             reporte.UnidadesRed.Clear();
             try
             {
-                foreach (var drive in DriveInfo.GetDrives()
-                    .Where(d => d.DriveType == DriveType.Network))
+                using var usersKey = Registry.Users;
+                foreach (string sid in usersKey.GetSubKeyNames())
                 {
-                    // Obtener la ruta UNC mediante la API de Windows
-                    string ruta = ObtenerRutaRed(drive.Name.TrimEnd('\\'));
-                    reporte.UnidadesRed.Add(new UnidadRedInfo
+                    if (sid.EndsWith("_Classes") || sid.Length < 15) continue;
+
+                    string networkPath = $@"{sid}\Network";
+                    using var networkKey = usersKey.OpenSubKey(networkPath);
+
+                    if (networkKey != null)
                     {
-                        Letra = drive.Name.TrimEnd('\\'),
-                        Ruta = string.IsNullOrEmpty(ruta) ? "(ruta no disponible)" : ruta
-                    });
+                        foreach (string letra in networkKey.GetSubKeyNames())
+                        {
+                            using var driveKey = networkKey.OpenSubKey(letra);
+                            if (driveKey != null)
+                            {
+                                string rutaRemota = driveKey.GetValue("RemotePath")?.ToString() ?? "";
+
+                                if (!string.IsNullOrEmpty(rutaRemota))
+                                {
+                                    string letraMayuscula = letra.ToUpper() + ":";
+
+                                    // Evitamos duplicados
+                                    if (!reporte.UnidadesRed.Any(u => u.Letra == letraMayuscula && u.Ruta == rutaRemota))
+                                    {
+                                        var infoRed = new UnidadRedInfo
+                                        {
+                                            Letra = letraMayuscula,
+                                            Ruta = rutaRemota
+                                        };
+
+                                        // Consultamos el espacio directamente a la ruta remota (UNC)
+                                        if (GetDiskFreeSpaceEx(rutaRemota, out ulong freeBytesAvail, out ulong totalBytes, out ulong totalFreeBytes))
+                                        {
+                                            infoRed.TotalGB = totalBytes / 1073741824.0;
+                                            infoRed.LibreGB = freeBytesAvail / 1073741824.0;
+
+                                            if (infoRed.TotalGB > 0)
+                                            {
+                                                infoRed.PorcentajeLibre = (infoRed.LibreGB / infoRed.TotalGB) * 100;
+
+                                                // Calcular barra visual de uso (10 caracteres)
+                                                double porcentajeUso = 100 - infoRed.PorcentajeLibre;
+                                                int barrasLlenas = (int)Math.Round(porcentajeUso / 10.0);
+                                                // Aseguramos que los límites estén entre 0 y 10
+                                                barrasLlenas = Math.Max(0, Math.Min(10, barrasLlenas));
+
+                                                infoRed.UsoVisual = $"[{new string('█', barrasLlenas)}{new string('░', 10 - barrasLlenas)}]";
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // Si falla la consulta de espacio (servidor apagado, sin permisos en esa ruta, etc.)
+                                            infoRed.UsoVisual = "[No accesible]";
+                                        }
+
+                                        reporte.UnidadesRed.Add(infoRed);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            catch { }
+            catch
+            {
+                // Manejo silencioso
+            }
         }
 
         // Llama a WNetGetConnection para resolver la letra de unidad a ruta UNC.
