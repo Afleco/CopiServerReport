@@ -145,17 +145,33 @@ namespace CopicanariasServerReport.Services
             reporte.UnidadesRed.Clear();
             try
             {
-                using var s = new ManagementObjectSearcher("SELECT DeviceID, ProviderName FROM Win32_MappedLogicalDisk");
-                foreach (ManagementObject map in s.Get())
-                    using (map)
-                        reporte.UnidadesRed.Add(new UnidadRedInfo
-                        {
-                            Letra = map["DeviceID"]?.ToString() ?? "",
-                            Ruta = map["ProviderName"]?.ToString() ?? ""
-                        });
+                foreach (var drive in DriveInfo.GetDrives()
+                    .Where(d => d.DriveType == DriveType.Network))
+                {
+                    // Obtener la ruta UNC mediante la API de Windows
+                    string ruta = ObtenerRutaRed(drive.Name.TrimEnd('\\'));
+                    reporte.UnidadesRed.Add(new UnidadRedInfo
+                    {
+                        Letra = drive.Name.TrimEnd('\\'),
+                        Ruta = string.IsNullOrEmpty(ruta) ? "(ruta no disponible)" : ruta
+                    });
+                }
             }
             catch { }
         }
+
+        // Llama a WNetGetConnection para resolver la letra de unidad a ruta UNC.
+        // Funciona en cualquier hilo ya que consulta directamente la API de red de Windows.
+        private static string ObtenerRutaRed(string letraSinBarra)
+        {
+            var sb = new System.Text.StringBuilder(300);
+            int len = sb.Capacity;
+            int ret = WNetGetConnection(letraSinBarra, sb, ref len);
+            return ret == 0 ? sb.ToString() : "";
+        }
+
+        [System.Runtime.InteropServices.DllImport("mpr.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern int WNetGetConnection(string localName, System.Text.StringBuilder remoteName, ref int length);
 
         // ── Drivers con error (delegado a DriverService) ─────────────
         private static void RecopilarDrivers(DatosServidor reporte)

@@ -28,7 +28,7 @@ namespace CopicanariasServerReport.Pdf
                             {
                                 txt.Item().Text("INFORME DE AUDITORÍA Y MANTENIMIENTO")
                                     .SemiBold().FontSize(15).FontColor(Colors.Blue.Darken4);
-                                txt.Item().Text("Grupo Copicanarias — Dpto. Sistemas")
+                                txt.Item().Text("Grupo Copicanarias — Departamento IT")
                                     .FontSize(11).FontColor(Colors.Grey.Darken1);
                                 txt.Item().Text($"Técnico responsable: {r.TecnicoResponsable}")
                                     .FontSize(9).FontColor(Colors.Grey.Darken2);
@@ -64,7 +64,7 @@ namespace CopicanariasServerReport.Pdf
 
                             var cAv = (r.AntivirusEstado.Contains("Activo") || r.AntivirusEstado.Contains("Monitori"))
                                 ? Colors.Green.Darken2 : Colors.Red.Darken2;
-                            FilaColor(t, "Estado AV:", r.AntivirusEstado, cAv);
+                            FilaColor(t, "Estado:", r.AntivirusEstado, cAv);
 
                             if (!string.IsNullOrWhiteSpace(r.AntivirusRuta))
                                 Fila(t, "Ruta ejecutable:", r.AntivirusRuta, 8);
@@ -329,21 +329,26 @@ namespace CopicanariasServerReport.Pdf
                                 FilaColor(t, "Digitalización certificada:",
                                     df.DigitalizacionCertificada
                                         ? "✅ Activa y funcionando"
-                                        : "— No aplica / No activa", cDig);
+                                        : "No tiene", cDig);
 
                                 // Firmas DF-Signature
                                 if (df.TieneFirmas)
                                 {
+                                    bool sinStock = df.FirmasRestantes == 0;
                                     bool pocasFirmas = df.FirmasRestantes <= 100;
-                                    var cFirmas = pocasFirmas ? Colors.Orange.Darken3 : Colors.Green.Darken2;
-                                    string textoFirmas = pocasFirmas
-                                        ? $"⚠️  {df.FirmasRestantes} firmas restantes — stock bajo"
-                                        : $"✅ {df.FirmasRestantes} firmas restantes";
+                                    var cFirmas = pocasFirmas ? Colors.Red.Darken2 : Colors.Green.Darken2;
+                                    string textoFirmas;
+                                    if (sinStock)
+                                        textoFirmas = "❌ Sin stock de firmas · Cliente avisado";
+                                    else if (pocasFirmas)
+                                        textoFirmas = $"⚠️  {df.FirmasRestantes} firmas restantes — Stock bajo · Cliente avisado";
+                                    else
+                                        textoFirmas = $"✅ {df.FirmasRestantes} firmas restantes";
                                     FilaColor(t, "Firmas DF-Signature:", textoFirmas, cFirmas);
                                 }
                                 else
                                 {
-                                    Fila(t, "Firmas DF-Signature:", "No aplica");
+                                    Fila(t, "Firmas DF-Signature:", "No tiene el módulo");
                                 }
                             });
 
@@ -373,9 +378,9 @@ namespace CopicanariasServerReport.Pdf
                                         bool proximo = cert.ProximoACaducar && !caducado;
 
                                         string estadoTxt = caducado
-                                            ? "❌ Caducado"
+                                            ? "❌ Caducado · Cliente avisado"
                                             : proximo
-                                                ? $"⚠️  Caduca en {diasRestantes} días"
+                                                ? $"⚠️  Caduca en {diasRestantes} días · Cliente avisado"
                                                 : $"✅ Válido ({diasRestantes} días)";
 
                                         var cEstado = caducado ? Colors.Red.Darken2

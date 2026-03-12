@@ -31,10 +31,6 @@ namespace CopicanariasServerReport
         private static readonly WinColor ClrDetalle = WinColor.FromArgb(65, 65, 75);
         private static readonly WinColor ClrSubdetalle = WinColor.FromArgb(120, 120, 130);
 
-        // Altura por defecto del formulario y altura con panel DF visible
-        private const int AlturaBase = 594;
-        private const int AlturaDF = 862;
-
         public Form1()
         {
             InitializeComponent();
@@ -46,19 +42,28 @@ namespace CopicanariasServerReport
         {
             QuestPDF.Settings.License = LicenseType.Community;
 
+            // Centrar horizontalmente en el área de trabajo y subir un 15%
+            // para que al expandirse con el panel DF no quede bajo la barra de tareas
+            var workArea = Screen.GetWorkingArea(this);
+            this.Location = new System.Drawing.Point(
+                workArea.Left + (workArea.Width - this.Width) / 2,
+                workArea.Top + (int)((workArea.Height - this.Height) * 0.30)
+            );
+
             rtbLog.BackColor = ClrFondo;
             rtbLog.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             rtbLog.ForeColor = ClrTexto;
             rtbLog.Clear();
 
             // ── Edita aquí los técnicos del desplegable ──────────────
+            cmbTecnico.Items.Add("— Seleccione un técnico —");
             // Técnicos de Sistemas
-            cmbTecnico.Items.Add("Técnico 1 (Soporte)");
-            cmbTecnico.Items.Add("Técnico 2 (Sistemas)");
-            cmbTecnico.Items.Add("Administrador Principal");
+            cmbTecnico.Items.Add("Alejandro Martel");
+            cmbTecnico.Items.Add("Himar Bautista");
+            cmbTecnico.Items.Add("Mencey Medina");
             // Técnicos DF-Server (deben contener el texto "DF-Server")
-            cmbTecnico.Items.Add("Técnico 1 (DF-Server)");
-            cmbTecnico.Items.Add("Técnico 2 (DF-Server)");
+            cmbTecnico.Items.Add("Aarón Ojeda (DF-Server)");
+            cmbTecnico.Items.Add("Francisco Muñoz (DF-Server)");
             cmbTecnico.SelectedIndex = 0;
 
             await EscaneoInicialAsync();
@@ -69,22 +74,48 @@ namespace CopicanariasServerReport
         // ═════════════════════════════════════════════════════════════
         private void cmbTecnico_SelectedIndexChanged(object sender, EventArgs e)
         {
-            bool esDf = cmbTecnico.SelectedItem?.ToString()
-                             .Contains("DF-Server") == true;
+            // Ignorar el placeholder "— Seleccione un técnico —"
+            if (cmbTecnico.SelectedIndex <= 0) { MostrarPanelDf(false); return; }
+
+            bool esDf = cmbTecnico.SelectedItem?.ToString().Contains("DF-Server") == true;
             MostrarPanelDf(esDf);
         }
 
         private void MostrarPanelDf(bool mostrar)
         {
             panelDF.Visible = mostrar;
-
-            // Los botones PDF y Auto se mueven según si el panel DF está visible
-            int yBotones = mostrar ? AlturaDF - 82 : AlturaBase - 82;
-            btnReport.Top = yBotones;
-            btnAuto.Top = yBotones;
-            this.ClientSize = new WinSize(800, mostrar ? AlturaDF : AlturaBase);
-
             if (!mostrar) LimpiarDatos();
+            RecalcularAltura();
+        }
+
+        // Fuente de verdad única para todas las alturas del formulario.
+        // Orden visual: log/botones izquierda → panel DF (si aplica) → Generar/Realizar
+        private void RecalcularAltura()
+        {
+            // El contenido fijo termina donde acaba el log (Bottom del rtbLog)
+            int contenidoBottom = rtbLog.Bottom; // = 110 + 385 = 495
+
+            if (!panelDF.Visible)
+            {
+                int yBotones = contenidoBottom + 12;
+                btnReport.Top = yBotones;
+                btnAuto.Top = yBotones;
+                this.ClientSize = new WinSize(800, yBotones + btnReport.Height + 40);
+                return;
+            }
+
+            // Altura dinámica del panel DF
+            int alturaPanel = 38 + 3 * 32 + 12; // título + 3 filas + margen ≈ 122px
+            if (panelCertsDinamico.Visible)
+                alturaPanel += panelCertsDinamico.Height + 14;
+
+            panelDF.Height = alturaPanel;
+            panelDF.Top = contenidoBottom + 8;   // pegado al log sin hueco
+
+            int yBotonesDF = panelDF.Bottom + 8;
+            btnReport.Top = yBotonesDF;
+            btnAuto.Top = yBotonesDF;
+            this.ClientSize = new WinSize(800, yBotonesDF + btnReport.Height + 40);
         }
 
         private void LimpiarDatos()
@@ -98,8 +129,6 @@ namespace CopicanariasServerReport
         }
 
         // ── Checkbox Digitalización ──────────────────────────────────
-        // Al marcar, pregunta si está configurada y funcionando.
-        // Si el técnico responde que no, se desmarca automáticamente.
         private void chkDigitalizacion_CheckedChanged(object sender, EventArgs e)
         {
             if (!chkDigitalizacion.Checked) return;
@@ -113,7 +142,6 @@ namespace CopicanariasServerReport
 
             if (resp == DialogResult.No)
             {
-                // Desmarcar sin disparar el evento de nuevo
                 chkDigitalizacion.CheckedChanged -= chkDigitalizacion_CheckedChanged;
                 chkDigitalizacion.Checked = false;
                 chkDigitalizacion.CheckedChanged += chkDigitalizacion_CheckedChanged;
@@ -153,22 +181,19 @@ namespace CopicanariasServerReport
             panelCertsDinamico.Controls.Clear();
             _certControls.Clear();
 
-            if (cantidad == 0) return;
+            if (cantidad == 0)
+            {
+                RecalcularAltura();
+                return;
+            }
 
-            int rowH = 34;
+            const int rowH = 34;
+            const int maxH = 170;
             int totalH = cantidad * rowH + 8;
+            panelCertsDinamico.Height = Math.Min(Math.Max(totalH, 44), maxH);
 
-            // Redimensionar el panel de certs y el panelDF si hace falta
-            panelCertsDinamico.Height = Math.Min(Math.Max(totalH, 44), 170);
-            panelDF.Height = 140 + panelCertsDinamico.Height + 10;
-
-            // Reposicionar los botones en consecuencia
-            int formH = panelDF.Visible
-                ? panelDF.Bottom + 90
-                : AlturaBase;
-            btnReport.Top = formH - 82;
-            btnAuto.Top = formH - 82;
-            this.ClientSize = new WinSize(800, formH);
+            // Primero ajustar el tamaño del panel, luego recalcular el formulario
+            RecalcularAltura();
 
             for (int i = 0; i < cantidad; i++)
             {
@@ -253,24 +278,36 @@ namespace CopicanariasServerReport
 
             var df = _reporte.DfServer;
 
-            // Validar cada certificado próximo a caducar
+            // Validar cada certificado caducado o próximo a caducar
             foreach (var cert in df.Certificados)
             {
                 if (!cert.ProximoACaducar) continue;
 
-                string dias = ((cert.FechaCaducidad.Date - DateTime.Today).Days).ToString();
+                int dias = (cert.FechaCaducidad.Date - DateTime.Today).Days;
+                bool caducado = dias < 0;
+
+                string mensaje = caducado
+                    ? $"❌  El certificado \"{cert.Nombre}\" caducó el " +
+                      $"{cert.FechaCaducidad:dd/MM/yyyy} (hace {Math.Abs(dias)} días).\n\n" +
+                      $"¿Se le ha avisado al cliente de que este certificado está caducado?"
+                    : $"⚠️  El certificado \"{cert.Nombre}\" caduca el " +
+                      $"{cert.FechaCaducidad:dd/MM/yyyy} (en {dias} días).\n\n" +
+                      $"¿Se le ha avisado al cliente de que este certificado va a caducar próximamente?";
+
+                string titulo = caducado ? "Certificado caducado" : "Certificado próximo a caducar";
+
                 var resp = MessageBox.Show(
-                    $"⚠️  El certificado \"{cert.Nombre}\" caduca el " +
-                    $"{cert.FechaCaducidad:dd/MM/yyyy} (en {dias} días).\n\n" +
-                    $"¿Se le ha avisado al cliente de que este certificado va a caducar próximamente?",
-                    "Certificado próximo a caducar",
+                    mensaje, titulo,
                     MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning,
+                    caducado ? MessageBoxIcon.Error : MessageBoxIcon.Warning,
                     MessageBoxDefaultButton.Button2);
 
                 if (resp == DialogResult.No)
                 {
-                    Log(">>> Informe cancelado: el cliente no ha sido avisado del certificado próximo a caducar.\n");
+                    string motivo = caducado
+                        ? "el cliente no ha sido avisado del certificado caducado"
+                        : "el cliente no ha sido avisado del certificado próximo a caducar";
+                    Log($">>> Informe cancelado: {motivo}.\n");
                     return false;
                 }
             }
@@ -408,7 +445,7 @@ namespace CopicanariasServerReport
                 LogBanner("⚠️   Se han detectado elementos que requieren atención",
                     WinColor.FromArgb(170, 90, 0), WinColor.White);
             else
-                LogBanner("✅   Sistema en buen estado — listo para generar el informe",
+                LogBanner("✅   Sistema actualizado",
                     WinColor.FromArgb(20, 120, 55), WinColor.White);
 
             SetBotonesHabilitados(true);
@@ -417,20 +454,50 @@ namespace CopicanariasServerReport
         // ─────────────────────────────────────────────────────────────
         // EVENTOS DE BOTONES
         // ─────────────────────────────────────────────────────────────
+
+        // Devuelve true si hay un técnico real seleccionado.
+        // Si no, muestra un aviso y devuelve false.
+        private bool TecnicoSeleccionado()
+        {
+            if (cmbTecnico.SelectedIndex > 0) return true;
+
+            MessageBox.Show(
+                "Por favor, selecciona un técnico responsable antes de continuar.",
+                "Técnico no seleccionado",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return false;
+        }
+
         private async void btnCleanTemp_Click(object sender, EventArgs e)
-        { SetBotonesHabilitados(false); await ProcesoLimpieza(); SetBotonesHabilitados(true); }
+        {
+            if (!TecnicoSeleccionado()) return;
+            SetBotonesHabilitados(false); await ProcesoLimpieza(); SetBotonesHabilitados(true);
+        }
 
         private async void btnSmart_Click(object sender, EventArgs e)
-        { SetBotonesHabilitados(false); await ProcesoSmart(); SetBotonesHabilitados(true); }
+        {
+            if (!TecnicoSeleccionado()) return;
+            SetBotonesHabilitados(false); await ProcesoSmart(); SetBotonesHabilitados(true);
+        }
 
         private async void btnUpdate_Click(object sender, EventArgs e)
-        { SetBotonesHabilitados(false); await ProcesoUpdates(); SetBotonesHabilitados(true); }
+        {
+            if (!TecnicoSeleccionado()) return;
+            SetBotonesHabilitados(false); await ProcesoUpdates(); SetBotonesHabilitados(true);
+        }
 
         private async void btnDrivers_Click(object sender, EventArgs e)
-        { SetBotonesHabilitados(false); await ProcesoDrivers(); SetBotonesHabilitados(true); }
+        {
+            if (!TecnicoSeleccionado()) return;
+            SetBotonesHabilitados(false); await ProcesoDrivers(); SetBotonesHabilitados(true);
+        }
 
         private async void btnReport_Click(object sender, EventArgs e)
-        { SetBotonesHabilitados(false); await ProcesoPDF(); SetBotonesHabilitados(true); }
+        {
+            if (!TecnicoSeleccionado()) return;
+            SetBotonesHabilitados(false); await ProcesoPDF(); SetBotonesHabilitados(true);
+        }
 
         private void btnAbrirUpdate_Click(object sender, EventArgs e) =>
             System.Diagnostics.Process.Start(
@@ -444,6 +511,7 @@ namespace CopicanariasServerReport
 
         private async void btnAuto_Click(object sender, EventArgs e)
         {
+            if (!TecnicoSeleccionado()) return;
             SetBotonesHabilitados(false);
             LogBanner("⚡   MANTENIMIENTO AUTOMÁTICO COMPLETO",
                 WinColor.FromArgb(100, 30, 180), WinColor.White);
@@ -574,7 +642,7 @@ namespace CopicanariasServerReport
             string rutaArchivo = sfd.FileName;
             try
             {
-                // Logo de Copicanarias (cabecera del informe)
+                // (cabecera del informe)
                 byte[] logoBytes;
                 using (var bmp = Properties.Resources.copicanariasicon)
                 using (var ms = new MemoryStream())
@@ -583,7 +651,7 @@ namespace CopicanariasServerReport
                     logoBytes = ms.ToArray();
                 }
 
-                // Logo de DF-Server (cabecera sección 9, solo si el técnico es DF)
+                // (cabecera sección 9, solo si el técnico es DF)
                 byte[] dfLogoBytes = null;
                 if (_reporte.EsTecnicoDf)
                 {

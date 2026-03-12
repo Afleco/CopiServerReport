@@ -41,7 +41,7 @@ namespace CopicanariasServerReport.Services
                         // ── Detección de reinicio pendiente ──────────────
                         reporte.RequiereReinicio = false;
 
-                        // Método 1: clave de registro (más fiable y rápida)
+                        // Método 1: clave de registro 
                         try
                         {
                             using var key = Registry.LocalMachine.OpenSubKey(
