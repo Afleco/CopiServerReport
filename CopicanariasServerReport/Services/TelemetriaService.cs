@@ -167,59 +167,85 @@ namespace CopicanariasServerReport.Services
             }
         }
 
-        // Mapa de nombre de servicio → nombre comercial del AV.
-        // Cubre los productos más habituales en entornos empresariales Windows Server.
-        private static readonly Dictionary<string, string> _avServicios =
-            new(StringComparer.OrdinalIgnoreCase)
-        {
-            { "ekrn",                        "ESET Security" },
-            { "EsetService",                 "ESET Security" },
-            { "AVP",                         "Kaspersky Endpoint Security" },
-            { "klnagent",                    "Kaspersky Network Agent" },
-            { "Sophos Agent",                "Sophos Endpoint" },
-            { "SAVService",                  "Sophos Anti-Virus" },
-            { "mfemms",                      "Trellix / McAfee Endpoint Security" },
-            { "McAfeeFramework",             "McAfee Agent" },
-            { "SepMasterService",            "Symantec Endpoint Protection" },
-            { "ntrtscan",                    "Trend Micro OfficeScan" },
-            { "TmListen",                    "Trend Micro" },
-            { "EPIntegrationService",        "Bitdefender GravityZone" },
-            { "EPSecurityService",           "Bitdefender Endpoint Security" },
-            { "CSFalconService",             "CrowdStrike Falcon" },
-            { "CbDefense",                   "VMware Carbon Black" },
-            { "MBAMService",                 "Malwarebytes" },
-            { "AvastSvc",                    "Avast Business Antivirus" },
-            { "CylanceSvc",                  "Cylance PROTECT" },
-            { "SentinelAgent",               "SentinelOne" },
-            { "WRSVC",                       "Webroot SecureAnywhere" },
-            // Panda Security / WatchGuard EPDR
-            { "PSANHost",                    "Panda / WatchGuard Endpoint Security" },
-            { "NanoServiceMain",             "Panda Adaptive Defense / WatchGuard EPDR" },
-            { "PSANCU",                      "Panda / WatchGuard Cloud Agent" },
-        };
-
+        // Detecta el AV de terceros mediante:
+        //   A) Proveedores AMSI registrados (HKLM\SOFTWARE\Microsoft\AMSI\Providers)
+        //      Cualquier AV compatible con Server 2016+ escribe su GUID aqui.
+        //      El nombre se resuelve desde HKLM\SOFTWARE\Classes\CLSID\{GUID}.
+        //      No requiere lista hardcodeada: detecta cualquier AV registrado.
+        //   B) Claves de desinstalacion (fallback para AV sin registro AMSI).
         private static bool BuscarAvTerceros(DatosServidor reporte)
         {
+            // ── Capa A: proveedores AMSI ──────────────────────────────────────────
             try
             {
-                using var s = new ManagementObjectSearcher(
-                    "SELECT Name, State FROM Win32_Service");
-                foreach (ManagementObject svc in s.Get())
-                    using (svc)
+                using var amsiKey = Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\Microsoft\AMSI\Providers");
+                if (amsiKey != null)
+                {
+                    foreach (string guid in amsiKey.GetSubKeyNames())
                     {
-                        string nombre = svc["Name"]?.ToString() ?? "";
-                        string estado = svc["State"]?.ToString() ?? "";
-                        if (_avServicios.TryGetValue(nombre, out string producto))
+                        string nombre = "";
+                        try
                         {
-                            reporte.AntivirusNombre = producto;
-                            reporte.AntivirusEstado = estado == "Running"
-                                ? "Activo (servicio en ejecución)"
-                                : $"Servicio detectado — Estado: {estado}";
-                            return true;
+                            using var clsid = Registry.LocalMachine.OpenSubKey(
+                                @"SOFTWARE\Classes\CLSID\" + guid);
+                            nombre = clsid?.GetValue(null)?.ToString() ?? "";
                         }
+                        catch { }
+
+                        if (string.IsNullOrEmpty(nombre) ||
+                            nombre.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0)
+                            continue;
+
+                        reporte.AntivirusNombre = nombre;
+                        reporte.AntivirusEstado = "Activo (registrado como proveedor AMSI)";
+                        return true;
                     }
+                }
             }
             catch { }
+
+            // ── Capa B: claves de desinstalacion (fallback para AV sin AMSI) ──────
+            string[] uninstallPaths = {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            };
+            string[] keywords = { "antivirus", "endpoint security", "endpoint protection",
+                                   "internet security", "total security", "antimalware" };
+            try
+            {
+                foreach (string path in uninstallPaths)
+                {
+                    using var uninstall = Registry.LocalMachine.OpenSubKey(path);
+                    if (uninstall == null) continue;
+
+                    foreach (string sub in uninstall.GetSubKeyNames())
+                    {
+                        using var app = uninstall.OpenSubKey(sub);
+                        if (app == null) continue;
+
+                        string displayName = app.GetValue("DisplayName")?.ToString() ?? "";
+                        if (string.IsNullOrEmpty(displayName)) continue;
+                        if (displayName.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0)
+                            continue;
+
+                        string lower = displayName.ToLower();
+                        foreach (string kw in keywords)
+                        {
+                            if (lower.Contains(kw))
+                            {
+                                string ver = app.GetValue("DisplayVersion")?.ToString() ?? "";
+                                reporte.AntivirusNombre = string.IsNullOrEmpty(ver)
+                                    ? displayName : $"{displayName} (v{ver})";
+                                reporte.AntivirusEstado = "Instalado (estado de servicio no determinado)";
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
             return false;
         }
 
