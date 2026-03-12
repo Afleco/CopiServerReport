@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Net.Http;
@@ -7,7 +8,8 @@ using System.Windows.Forms;
 using CopicanariasServerReport.Pdf;
 using CopicanariasServerReport.Services;
 using QuestPDF.Infrastructure;
-using WinColor = System.Drawing.Color; // alias para evitar ambigüedad con QuestPDF.Infrastructure.Color
+using WinColor = System.Drawing.Color;  // alias para evitar ambigüedad con QuestPDF.Infrastructure.Color
+using WinSize = System.Drawing.Size;   // alias para evitar ambigüedad con QuestPDF.Infrastructure.Size
 
 namespace CopicanariasServerReport
 {
@@ -16,15 +18,22 @@ namespace CopicanariasServerReport
         private readonly DatosServidor _reporte = new DatosServidor();
         private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
 
-        // Colores del log reutilizados en varios métodos
-        private static readonly WinColor ClrFondo = WinColor.FromArgb(238, 241, 248); // fondo log
-        private static readonly WinColor ClrTexto = WinColor.FromArgb(40, 40, 40);  // texto base
-        private static readonly WinColor ClrSeccion = WinColor.FromArgb(28, 78, 170);  // azul corporativo
-        private static readonly WinColor ClrOk = WinColor.FromArgb(20, 120, 55);  // verde éxito
-        private static readonly WinColor ClrAviso = WinColor.FromArgb(170, 90, 0); // naranja aviso
-        private static readonly WinColor ClrError = WinColor.FromArgb(180, 20, 20); // rojo error
-        private static readonly WinColor ClrDetalle = WinColor.FromArgb(65, 65, 75);  // detalle normal
-        private static readonly WinColor ClrSubdetalle = WinColor.FromArgb(120, 120, 130); // texto secundario
+        // Controles de certificados creados dinámicamente
+        private readonly List<(TextBox Nombre, DateTimePicker Fecha)> _certControls = new();
+
+        // Colores del log
+        private static readonly WinColor ClrFondo = WinColor.FromArgb(238, 241, 248);
+        private static readonly WinColor ClrTexto = WinColor.FromArgb(40, 40, 40);
+        private static readonly WinColor ClrSeccion = WinColor.FromArgb(28, 78, 170);
+        private static readonly WinColor ClrOk = WinColor.FromArgb(20, 120, 55);
+        private static readonly WinColor ClrAviso = WinColor.FromArgb(170, 90, 0);
+        private static readonly WinColor ClrError = WinColor.FromArgb(180, 20, 20);
+        private static readonly WinColor ClrDetalle = WinColor.FromArgb(65, 65, 75);
+        private static readonly WinColor ClrSubdetalle = WinColor.FromArgb(120, 120, 130);
+
+        // Altura por defecto del formulario y altura con panel DF visible
+        private const int AlturaBase = 594;
+        private const int AlturaDF = 862;
 
         public Form1()
         {
@@ -32,107 +41,276 @@ namespace CopicanariasServerReport
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("CopicanariasServerReport/1.0");
         }
 
-        // ── Al cargar el formulario ───────────────────────────────────
+        // ── Carga del formulario ─────────────────────────────────────
         private async void Form1_Load(object sender, EventArgs e)
         {
             QuestPDF.Settings.License = LicenseType.Community;
 
-            // Estilo del log
             rtbLog.BackColor = ClrFondo;
             rtbLog.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             rtbLog.ForeColor = ClrTexto;
             rtbLog.Clear();
 
-            // ── Edita aquí los técnicos del desplegable ──
-            cmbTecnico.Items.Add("Himar Bautista");
-            cmbTecnico.Items.Add("Mencey Medina");
-            cmbTecnico.Items.Add("Alejandro Martel");
-            cmbTecnico.Items.Add("Aarón Ojeda");
-            cmbTecnico.Items.Add("Francisco Muñoz");
+            // ── Edita aquí los técnicos del desplegable ──────────────
+            // Técnicos de Sistemas
+            cmbTecnico.Items.Add("Técnico 1 (Soporte)");
+            cmbTecnico.Items.Add("Técnico 2 (Sistemas)");
+            cmbTecnico.Items.Add("Administrador Principal");
+            // Técnicos DF-Server (deben contener el texto "DF-Server")
+            cmbTecnico.Items.Add("Técnico 1 (DF-Server)");
+            cmbTecnico.Items.Add("Técnico 2 (DF-Server)");
             cmbTecnico.SelectedIndex = 0;
 
             await EscaneoInicialAsync();
         }
 
         // ═════════════════════════════════════════════════════════════
+        // PANEL DF-SERVER — mostrar / ocultar según técnico seleccionado
+        // ═════════════════════════════════════════════════════════════
+        private void cmbTecnico_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            bool esDf = cmbTecnico.SelectedItem?.ToString()
+                             .Contains("DF-Server") == true;
+            MostrarPanelDf(esDf);
+        }
+
+        private void MostrarPanelDf(bool mostrar)
+        {
+            panelDF.Visible = mostrar;
+
+            // Los botones PDF y Auto se mueven según si el panel DF está visible
+            int yBotones = mostrar ? AlturaDF - 82 : AlturaBase - 82;
+            btnReport.Top = yBotones;
+            btnAuto.Top = yBotones;
+            this.ClientSize = new WinSize(800, mostrar ? AlturaDF : AlturaBase);
+
+            if (!mostrar) LimpiarDatos();
+        }
+
+        private void LimpiarDatos()
+        {
+            chkDigitalizacion.Checked = false;
+            chkFirmas.Checked = false;
+            chkCertificados.Checked = false;
+            numFirmas.Value = 0;
+            numCertificados.Value = 1;
+            RebuildCertificadoFields(0);
+        }
+
+        // ── Checkbox Firmas ──────────────────────────────────────────
+        private void chkFirmas_CheckedChanged(object sender, EventArgs e)
+        {
+            bool activo = chkFirmas.Checked;
+            lblFirmasRestantes.Enabled = activo;
+            numFirmas.Enabled = activo;
+            if (!activo) numFirmas.Value = 0;
+        }
+
+        // ── Checkbox Certificados ────────────────────────────────────
+        private void chkCertificados_CheckedChanged(object sender, EventArgs e)
+        {
+            bool activo = chkCertificados.Checked;
+            lblNumCerts.Enabled = activo;
+            numCertificados.Enabled = activo;
+            panelCertsDinamico.Visible = activo;
+
+            RebuildCertificadoFields(activo ? (int)numCertificados.Value : 0);
+        }
+
+        // ── Cambio en el número de certificados ──────────────────────
+        private void numCertificados_ValueChanged(object sender, EventArgs e)
+        {
+            if (chkCertificados.Checked)
+                RebuildCertificadoFields((int)numCertificados.Value);
+        }
+
+        // ── Genera dinámicamente las filas de certificados ───────────
+        private void RebuildCertificadoFields(int cantidad)
+        {
+            panelCertsDinamico.Controls.Clear();
+            _certControls.Clear();
+
+            if (cantidad == 0) return;
+
+            int rowH = 34;
+            int totalH = cantidad * rowH + 8;
+
+            // Redimensionar el panel de certs y el panelDF si hace falta
+            panelCertsDinamico.Height = Math.Min(Math.Max(totalH, 44), 170);
+            panelDF.Height = 140 + panelCertsDinamico.Height + 10;
+
+            // Reposicionar los botones en consecuencia
+            int formH = panelDF.Visible
+                ? panelDF.Bottom + 90
+                : AlturaBase;
+            btnReport.Top = formH - 82;
+            btnAuto.Top = formH - 82;
+            this.ClientSize = new WinSize(800, formH);
+
+            for (int i = 0; i < cantidad; i++)
+            {
+                int y = 4 + i * rowH;
+
+                var lblN = new Label
+                {
+                    Text = $"Certificado {i + 1}:",
+                    Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                    ForeColor = WinColor.FromArgb(28, 60, 160),
+                    Location = new Point(6, y + 6),
+                    Size = new WinSize(100, 18),
+                    AutoSize = false
+                };
+
+                var txtNombre = new TextBox
+                {
+                    PlaceholderText = "Nombre del certificado",
+                    Font = new Font("Segoe UI", 9f),
+                    Location = new Point(110, y + 4),
+                    Size = new WinSize(300, 24),
+                    BackColor = WinColor.White
+                };
+
+                var lblF = new Label
+                {
+                    Text = "Caduca:",
+                    Font = new Font("Segoe UI", 8.5f),
+                    ForeColor = WinColor.DimGray,
+                    Location = new Point(420, y + 6),
+                    Size = new WinSize(55, 18),
+                    AutoSize = false
+                };
+
+                var dtp = new DateTimePicker
+                {
+                    Format = DateTimePickerFormat.Short,
+                    Font = new Font("Segoe UI", 9f),
+                    Location = new Point(478, y + 3),
+                    Size = new WinSize(140, 24),
+                    Value = DateTime.Today.AddYears(1)
+                };
+
+                panelCertsDinamico.Controls.AddRange(new Control[] { lblN, txtNombre, lblF, dtp });
+                _certControls.Add((txtNombre, dtp));
+            }
+        }
+
+        // ── Lee los campos DF del panel y los guarda en _reporte ─────
+        private void LeerDatosDF()
+        {
+            _reporte.EsTecnicoDf = panelDF.Visible;
+            if (!panelDF.Visible) return;
+
+            var df = _reporte.DfServer;
+            df.DigitalizacionCertificada = chkDigitalizacion.Checked;
+            df.TieneFirmas = chkFirmas.Checked;
+            df.FirmasRestantes = chkFirmas.Checked ? (int)numFirmas.Value : 0;
+            df.TieneCertificados = chkCertificados.Checked;
+            df.Certificados.Clear();
+
+            if (chkCertificados.Checked)
+            {
+                foreach (var (txt, dtp) in _certControls)
+                {
+                    df.Certificados.Add(new CertificadoDigital
+                    {
+                        Nombre = txt.Text.Trim().Length > 0
+                                         ? txt.Text.Trim()
+                                         : $"Certificado {df.Certificados.Count + 1}",
+                        FechaCaducidad = dtp.Value.Date
+                    });
+                }
+            }
+        }
+
+        // ── Validaciones DF antes de generar el PDF ──────────────────
+        // Devuelve true si se puede continuar, false si se cancela.
+        private bool ValidarCamposDf()
+        {
+            if (!_reporte.EsTecnicoDf) return true;
+
+            var df = _reporte.DfServer;
+
+            // Validar cada certificado próximo a caducar
+            foreach (var cert in df.Certificados)
+            {
+                if (!cert.ProximoACaducar) continue;
+
+                string dias = ((cert.FechaCaducidad.Date - DateTime.Today).Days).ToString();
+                var resp = MessageBox.Show(
+                    $"⚠️  El certificado \"{cert.Nombre}\" caduca el " +
+                    $"{cert.FechaCaducidad:dd/MM/yyyy} (en {dias} días).\n\n" +
+                    $"¿Se le ha avisado al cliente de que este certificado va a caducar próximamente?",
+                    "Certificado próximo a caducar",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+
+                if (resp == DialogResult.No)
+                {
+                    Log(">>> Informe cancelado: el cliente no ha sido avisado del certificado próximo a caducar.\n");
+                    return false;
+                }
+            }
+
+            // Validar firmas de DF-Signature
+            if (df.TieneFirmas && df.FirmasRestantes <= 100)
+            {
+                var resp = MessageBox.Show(
+                    $"⚠️  Quedan solo {df.FirmasRestantes} firmas de DF-Signature disponibles.\n\n" +
+                    $"¿Se le ha avisado al cliente de que le quedan pocas firmas de DF-Signature?",
+                    "Pocas firmas disponibles",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+
+                if (resp == DialogResult.No)
+                {
+                    Log(">>> Informe cancelado: el cliente no ha sido avisado de las pocas firmas restantes.\n");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // ═════════════════════════════════════════════════════════════
         // SISTEMA DE LOG VISUAL
         // ═════════════════════════════════════════════════════════════
-
-        // Escribe texto detectando el tipo de mensaje por su contenido.
-        // Ningún servicio necesita cambiar su firma para que funcione.
         private void Log(string texto)
         {
             if (string.IsNullOrEmpty(texto)) return;
-
             string linea = texto.TrimEnd('\n', '\r');
 
-            // Éxito
             if (linea.Contains("✅"))
-            {
-                bool bold = linea.TrimStart().StartsWith(">>>");
-                Escribir(texto, ClrOk, bold, 9.5f);
-                return;
-            }
+            { Escribir(texto, ClrOk, linea.TrimStart().StartsWith(">>>"), 9.5f); return; }
 
-            // Advertencia o reinicio
             if (linea.Contains("⚠️") || linea.Contains("🔁"))
-            {
-                bool bold = linea.TrimStart().StartsWith(">>>");
-                Escribir(texto, ClrAviso, bold, 9.5f);
-                return;
-            }
+            { Escribir(texto, ClrAviso, linea.TrimStart().StartsWith(">>>"), 9.5f); return; }
 
-            // Acción completa (⚡)
             if (linea.Contains("⚡"))
-            {
-                Escribir(texto, WinColor.FromArgb(100, 30, 180), true, 9.5f);
-                return;
-            }
+            { Escribir(texto, WinColor.FromArgb(100, 30, 180), true, 9.5f); return; }
 
-            // Error / sin acceso / ALERTA
             if (linea.Contains("sin acceso") ||
                 linea.Contains("No se pudo") ||
                 linea.Contains("ALERTA"))
-            {
-                Escribir(texto, ClrError, false, 9.5f);
-                return;
-            }
+            { Escribir(texto, ClrError, false, 9.5f); return; }
 
-            // Encabezado de sección >>>
             if (linea.TrimStart().StartsWith(">>>"))
-            {
-                Escribir(texto, ClrSeccion, true, 9.5f);
-                return;
-            }
+            { Escribir(texto, ClrSeccion, true, 9.5f); return; }
 
-            // Detalle · ítem
             if (linea.TrimStart().StartsWith("·") || linea.StartsWith("    ·"))
-            {
-                Escribir(texto, ClrDetalle, false, 9f);
-                return;
-            }
+            { Escribir(texto, ClrDetalle, false, 9f); return; }
 
-            // Sub-detalle (indentado o código de error)
             if (linea.StartsWith("      ") || linea.TrimStart().StartsWith("Código"))
-            {
-                Escribir(texto, ClrSubdetalle, false, 8.5f);
-                return;
-            }
+            { Escribir(texto, ClrSubdetalle, false, 8.5f); return; }
 
-            // Texto informativo genérico
             Escribir(texto, ClrTexto, false, 9.5f);
         }
 
-        // Escribe un banner de color sólido como cabecera de sección.
-        // Sustituye a los caracteres Unicode ╔ ║ ╚ que renderizan mal.
         private void LogBanner(string titulo, WinColor fondo, WinColor texto)
         {
             rtbLog.SuspendLayout();
-
-            // Línea en blanco antes del banner
             Escribir("\n", ClrTexto, false, 9.5f);
-
-            // Texto del banner centrado y rellenado con espacios
             string contenido = $"  {titulo}  ".PadRight(64);
             rtbLog.SelectionStart = rtbLog.TextLength;
             rtbLog.SelectionLength = 0;
@@ -140,20 +318,14 @@ namespace CopicanariasServerReport
             rtbLog.SelectionColor = texto;
             rtbLog.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Bold);
             rtbLog.AppendText(contenido + "\n");
-
-            // Restaurar
             rtbLog.SelectionBackColor = ClrFondo;
             rtbLog.SelectionColor = ClrTexto;
             rtbLog.SelectionFont = rtbLog.Font;
-
-            // Línea en blanco después
             Escribir("\n", ClrTexto, false, 9.5f);
-
             rtbLog.ResumeLayout();
             rtbLog.ScrollToCaret();
         }
 
-        // Escritura base con color y tamaño concretos
         private void Escribir(string texto, WinColor color, bool bold, float size)
         {
             rtbLog.SuspendLayout();
@@ -170,7 +342,7 @@ namespace CopicanariasServerReport
             rtbLog.ScrollToCaret();
         }
 
-        // ── Habilitar / deshabilitar botones durante operaciones ─────
+        // ── Habilitar / deshabilitar botones ─────────────────────────
         private void SetBotonesHabilitados(bool habilitado)
         {
             btnCleanTemp.Enabled = habilitado;
@@ -181,6 +353,8 @@ namespace CopicanariasServerReport
             btnDeviceManager.Enabled = habilitado;
             btnReport.Enabled = habilitado;
             btnAuto.Enabled = habilitado;
+            // Los controles DF solo se activan cuando no hay operación en curso
+            panelDF.Enabled = habilitado;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -248,7 +422,6 @@ namespace CopicanariasServerReport
         private async void btnAuto_Click(object sender, EventArgs e)
         {
             SetBotonesHabilitados(false);
-
             LogBanner("⚡   MANTENIMIENTO AUTOMÁTICO COMPLETO",
                 WinColor.FromArgb(100, 30, 180), WinColor.White);
 
@@ -324,7 +497,6 @@ namespace CopicanariasServerReport
         {
             LogBanner("ANÁLISIS DE WINDOWS UPDATE",
                 WinColor.FromArgb(50, 60, 100), WinColor.White);
-
             await UpdateService.AnalizarAsync(_reporte, Log);
         }
 
@@ -351,6 +523,10 @@ namespace CopicanariasServerReport
 
             if (cmbTecnico?.SelectedItem != null)
                 _reporte.TecnicoResponsable = cmbTecnico.SelectedItem.ToString();
+
+            // Leer campos DF y validar antes de continuar
+            LeerDatosDF();
+            if (!ValidarCamposDf()) return;
 
             if (_reporte.Discos.Count == 0)
                 await ProcesoSmart();
@@ -396,6 +572,11 @@ namespace CopicanariasServerReport
                 Log($"      Causa: {ex.Message}\n");
                 Log("      Comprueba que la ruta es accesible y el archivo no está abierto.\n");
             }
+        }
+
+        private void pictureBox1_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

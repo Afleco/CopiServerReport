@@ -301,6 +301,95 @@ namespace CopicanariasServerReport.Pdf
                                     .Text(barra).FontColor(critico ? Colors.Red.Medium : Colors.Blue.Medium).FontSize(7);
                             }
                         });
+                        // ── 9. DF-SERVER (solo si el técnico es DF) ──────────
+                        if (r.EsTecnicoDf)
+                        {
+                            var df = r.DfServer;
+
+                            // Cabecera de sección con fondo azul DF
+                            col.Item().PaddingTop(10).Background(Colors.Blue.Darken3)
+                                .Padding(5)
+                                .Text("9. Servicios DF-Server")
+                                .FontSize(11).SemiBold().FontColor(Colors.White);
+                            col.Item().PaddingBottom(4);
+
+                            col.Item().Table(t =>
+                            {
+                                t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
+
+                                // Digitalización certificada
+                                var cDig = df.DigitalizacionCertificada
+                                    ? Colors.Green.Darken2 : Colors.Red.Darken2;
+                                FilaColor(t, "Digitalización certificada:",
+                                    df.DigitalizacionCertificada ? "✅ Activa" : "❌ No activa", cDig);
+
+                                // Firmas DF-Signature
+                                if (df.TieneFirmas)
+                                {
+                                    bool pocasFirmas = df.FirmasRestantes <= 100;
+                                    var cFirmas = pocasFirmas ? Colors.Orange.Darken3 : Colors.Green.Darken2;
+                                    string textoFirmas = pocasFirmas
+                                        ? $"⚠️  {df.FirmasRestantes} firmas restantes — stock bajo"
+                                        : $"✅ {df.FirmasRestantes} firmas restantes";
+                                    FilaColor(t, "Firmas DF-Signature:", textoFirmas, cFirmas);
+                                }
+                                else
+                                {
+                                    Fila(t, "Firmas DF-Signature:", "No aplica");
+                                }
+                            });
+
+                            // Tabla de certificados digitales
+                            if (df.TieneCertificados && df.Certificados.Count > 0)
+                            {
+                                col.Item().PaddingTop(6).PaddingBottom(2)
+                                    .Text("Certificados digitales:").SemiBold().FontSize(9);
+
+                                col.Item().Table(t =>
+                                {
+                                    t.ColumnsDefinition(c =>
+                                    {
+                                        c.RelativeColumn(4); // Nombre
+                                        c.RelativeColumn(2); // Fecha caducidad
+                                        c.RelativeColumn(3); // Estado
+                                    });
+
+                                    foreach (var h in new[] { "Certificado", "Fecha caducidad", "Estado" })
+                                        t.Cell().Background(Colors.Blue.Lighten4).Padding(3)
+                                            .Text(h).SemiBold().FontSize(8);
+
+                                    foreach (var cert in df.Certificados)
+                                    {
+                                        int diasRestantes = (cert.FechaCaducidad.Date - DateTime.Today).Days;
+                                        bool caducado = diasRestantes < 0;
+                                        bool proximo = cert.ProximoACaducar && !caducado;
+
+                                        string estadoTxt = caducado
+                                            ? "❌ Caducado"
+                                            : proximo
+                                                ? $"⚠️  Caduca en {diasRestantes} días"
+                                                : $"✅ Válido ({diasRestantes} días)";
+
+                                        var cEstado = caducado ? Colors.Red.Darken2
+                                                    : proximo ? Colors.Orange.Darken3
+                                                    : Colors.Green.Darken2;
+
+                                        t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
+                                            .Padding(3).Text(cert.Nombre).FontSize(8);
+                                        t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
+                                            .Padding(3).Text(cert.FechaCaducidad.ToString("dd/MM/yyyy")).FontSize(8);
+                                        t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
+                                            .Padding(3).Text(estadoTxt).FontColor(cEstado).SemiBold().FontSize(8);
+                                    }
+                                });
+                            }
+                            else if (!df.TieneCertificados)
+                            {
+                                col.Item().PaddingLeft(4).PaddingTop(4)
+                                    .Text("Sin certificados digitales registrados.")
+                                    .FontColor(Colors.Grey.Darken2).FontSize(8.5f);
+                            }
+                        }
                     });
 
                     // ══ PIE DE PÁGINA ══════════════════════════════════════

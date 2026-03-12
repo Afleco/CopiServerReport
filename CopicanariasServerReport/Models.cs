@@ -33,7 +33,6 @@ namespace CopicanariasServerReport
         public string Ruta { get; set; } = "";
     }
 
-    // Información enriquecida de un dispositivo/driver con error
     public class DriverInfo
     {
         public string Nombre { get; set; } = "";
@@ -45,9 +44,33 @@ namespace CopicanariasServerReport
         public bool TieneDriver { get; set; } = false;
     }
 
+    // ── DF-Server ────────────────────────────────────────────────────
+
+    public class CertificadoDigital
+    {
+        public string Nombre { get; set; } = "";
+        public DateTime FechaCaducidad { get; set; } = DateTime.Today.AddYears(1);
+
+        // Caduca en 3 meses o menos (92 días como margen seguro)
+        public bool ProximoACaducar =>
+            (FechaCaducidad.Date - DateTime.Today).TotalDays <= 92;
+    }
+
+    public class DfServerInfo
+    {
+        public bool DigitalizacionCertificada { get; set; } = false;
+        public bool TieneFirmas { get; set; } = false;
+        public int FirmasRestantes { get; set; } = 0;
+        public bool TieneCertificados { get; set; } = false;
+        public List<CertificadoDigital> Certificados { get; set; } = new();
+    }
+
+    // ── Modelo principal ─────────────────────────────────────────────
+
     public class DatosServidor
     {
         public string TecnicoResponsable { get; set; } = "No asignado";
+        public bool EsTecnicoDf { get; set; } = false;
         public string NombreServidor { get; set; } = Environment.MachineName;
         public string SistemaOperativo { get; set; } = string.Empty;
         public string Arquitectura { get; set; } = Environment.Is64BitOperatingSystem ? "x64" : "x86";
@@ -76,10 +99,12 @@ namespace CopicanariasServerReport
 
         public List<RedInfo> InterfacesRed { get; set; } = new();
         public List<UnidadRedInfo> UnidadesRed { get; set; } = new();
-        public List<DriverInfo> Drivers { get; set; } = new(); // sustituye DriversConError
+        public List<DriverInfo> Drivers { get; set; } = new();
 
         public string VersionJava { get; set; } = "";
         public string JavaVersionOnline { get; set; } = "";
         public bool JavaAlDia { get; set; } = false;
+
+        public DfServerInfo DfServer { get; set; } = new();
     }
 }
