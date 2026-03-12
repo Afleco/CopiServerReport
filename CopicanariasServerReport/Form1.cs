@@ -97,6 +97,29 @@ namespace CopicanariasServerReport
             RebuildCertificadoFields(0);
         }
 
+        // ── Checkbox Digitalización ──────────────────────────────────
+        // Al marcar, pregunta si está configurada y funcionando.
+        // Si el técnico responde que no, se desmarca automáticamente.
+        private void chkDigitalizacion_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!chkDigitalizacion.Checked) return;
+
+            var resp = MessageBox.Show(
+                "¿La digitalización certificada está configurada y funcionando correctamente?",
+                "Digitalización certificada",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+
+            if (resp == DialogResult.No)
+            {
+                // Desmarcar sin disparar el evento de nuevo
+                chkDigitalizacion.CheckedChanged -= chkDigitalizacion_CheckedChanged;
+                chkDigitalizacion.Checked = false;
+                chkDigitalizacion.CheckedChanged += chkDigitalizacion_CheckedChanged;
+            }
+        }
+
         // ── Checkbox Firmas ──────────────────────────────────────────
         private void chkFirmas_CheckedChanged(object sender, EventArgs e)
         {
@@ -551,6 +574,7 @@ namespace CopicanariasServerReport
             string rutaArchivo = sfd.FileName;
             try
             {
+                // Logo de Copicanarias (cabecera del informe)
                 byte[] logoBytes;
                 using (var bmp = Properties.Resources.copicanariasicon)
                 using (var ms = new MemoryStream())
@@ -559,7 +583,21 @@ namespace CopicanariasServerReport
                     logoBytes = ms.ToArray();
                 }
 
-                await Task.Run(() => PdfGenerator.Generar(rutaArchivo, _reporte, logoBytes));
+                // Logo de DF-Server (cabecera sección 9, solo si el técnico es DF)
+                byte[] dfLogoBytes = null;
+                if (_reporte.EsTecnicoDf)
+                {
+                    try
+                    {
+                        using var bmpDf = Properties.Resources.DF_SERVER_logo_300x60;
+                        using var msDf = new MemoryStream();
+                        bmpDf.Save(msDf, System.Drawing.Imaging.ImageFormat.Png);
+                        dfLogoBytes = msDf.ToArray();
+                    }
+                    catch { /* Si el recurso no existe, el logo simplemente no aparece */ }
+                }
+
+                await Task.Run(() => PdfGenerator.Generar(rutaArchivo, _reporte, logoBytes, dfLogoBytes));
 
                 Log($">>> ✅ PDF guardado en: {rutaArchivo}\n");
                 System.Diagnostics.Process.Start(
@@ -572,11 +610,6 @@ namespace CopicanariasServerReport
                 Log($"      Causa: {ex.Message}\n");
                 Log("      Comprueba que la ruta es accesible y el archivo no está abierto.\n");
             }
-        }
-
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
-
         }
     }
 }

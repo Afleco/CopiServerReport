@@ -9,7 +9,7 @@ namespace CopicanariasServerReport.Pdf
     {
         // Genera el documento PDF en 'ruta' a partir de los datos del informe.
         // Método síncrono: debe llamarse desde Task.Run para no bloquear la UI.
-        public static void Generar(string ruta, DatosServidor r, byte[] logoBytes)
+        public static void Generar(string ruta, DatosServidor r, byte[] logoBytes, byte[] dfLogoBytes = null)
         {
             Document.Create(container =>
             {
@@ -306,11 +306,17 @@ namespace CopicanariasServerReport.Pdf
                         {
                             var df = r.DfServer;
 
-                            // Cabecera de sección con fondo azul DF
+                            // Cabecera de sección con fondo azul DF + logo
                             col.Item().PaddingTop(10).Background(Colors.Blue.Darken3)
-                                .Padding(5)
-                                .Text("9. Servicios DF-Server")
-                                .FontSize(11).SemiBold().FontColor(Colors.White);
+                                .Padding(5).Row(row =>
+                                {
+                                    row.RelativeItem().AlignMiddle()
+                                        .Text("9. Servicios DF-Server")
+                                        .FontSize(11).SemiBold().FontColor(Colors.White);
+                                    if (dfLogoBytes != null)
+                                        row.ConstantItem(80).AlignRight().Height(28)
+                                            .Image(dfLogoBytes).FitArea();
+                                });
                             col.Item().PaddingBottom(4);
 
                             col.Item().Table(t =>
@@ -319,9 +325,11 @@ namespace CopicanariasServerReport.Pdf
 
                                 // Digitalización certificada
                                 var cDig = df.DigitalizacionCertificada
-                                    ? Colors.Green.Darken2 : Colors.Red.Darken2;
+                                    ? Colors.Green.Darken2 : Colors.Grey.Darken2;
                                 FilaColor(t, "Digitalización certificada:",
-                                    df.DigitalizacionCertificada ? "✅ Activa" : "❌ No activa", cDig);
+                                    df.DigitalizacionCertificada
+                                        ? "✅ Activa y funcionando"
+                                        : "— No aplica / No activa", cDig);
 
                                 // Firmas DF-Signature
                                 if (df.TieneFirmas)
