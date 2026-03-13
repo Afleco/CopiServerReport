@@ -99,7 +99,7 @@ namespace CopicanariasServerReport.Services
         public static List<DriverInfo> Escanear()
         {
             var resultado = new List<DriverInfo>();
-            var tarea = EscanearAsync(_ => { }); // log vacío: en telemetría no necesitamos log
+            var tarea = EscanearAsync(_ => { }); // log vacío: en telemetría no usamos log
             tarea.Wait();
             return tarea.Result;
         }
