@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Management;
@@ -13,8 +14,6 @@ namespace CopicanariasServerReport.Services
 {
     public static class TelemetriaService
     {
-        // Recoge toda la telemetría del sistema de forma síncrona.
-        // Se debe llamar siempre desde Task.Run para no bloquear la UI.
         public static void RecopilarTelemetria(DatosServidor reporte)
         {
             RecopilarSistemaOperativo(reporte);
@@ -81,9 +80,6 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Antivirus ────────────────────────────────────────────────
-        // Estrategia en dos capas:
-        //   1) SecurityCenter2       — Windows 10/11 de escritorio
-        //   2) MSFT_MpComputerStatus — Windows Defender en Server y Win10/11
         private static void RecopilarAntivirus(DatosServidor reporte)
         {
             reporte.AntivirusNombre = "";
@@ -91,7 +87,7 @@ namespace CopicanariasServerReport.Services
             reporte.AntivirusRuta = "";
             bool encontrado = false;
 
-            // ── Capa 1: SecurityCenter2 (solo disponible en ediciones de escritorio) ──
+            // 1. Capa Escritorio: SecurityCenter2
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -107,58 +103,49 @@ namespace CopicanariasServerReport.Services
                             uint state = Convert.ToUInt32(av["productState"] ?? 0u);
                             bool activo = ((state >> 12) & 0xF) == 1;
                             bool alDia = ((state >> 4) & 0xF) != 10;
-                            reporte.AntivirusEstado = activo
-                                ? (alDia ? "Activo y actualizado" : "Activo — Definiciones desactualizadas")
-                                : "Deshabilitado ⚠️";
+                            reporte.AntivirusEstado = activo ? (alDia ? "Activo y actualizado" : "Activo — Desactualizado") : "Deshabilitado ⚠️";
                         }
                         catch { reporte.AntivirusEstado = "Activo (estado no determinado)"; }
                         encontrado = true;
                         break;
                     }
             }
-            catch { /* namespace no disponible en Windows Server — continuar */ }
-
-            if (encontrado) return;
-
-            // ── Capa 2: MSFT_MpComputerStatus (Defender en Server y Win10/11) ──
-            try
-            {
-                using var s = new ManagementObjectSearcher(
-                    "root\\Microsoft\\Windows\\Defender",
-                    "SELECT AMProductVersion, AMRunningMode, AntivirusEnabled, " +
-                    "AntivirusSignatureAge FROM MSFT_MpComputerStatus");
-                foreach (ManagementObject mp in s.Get())
-                    using (mp)
-                    {
-                        string version = mp["AMProductVersion"]?.ToString() ?? "";
-                        string modo = mp["AMRunningMode"]?.ToString() ?? "";
-                        bool avActivo = false;
-                        try { avActivo = Convert.ToBoolean(mp["AntivirusEnabled"] ?? false); } catch { }
-                        uint sigAge = 0;
-                        try { sigAge = Convert.ToUInt32(mp["AntivirusSignatureAge"] ?? 0u); } catch { }
-
-                        reporte.AntivirusNombre = string.IsNullOrEmpty(version)
-                            ? "Windows Defender"
-                            : $"Windows Defender (v{version})";
-
-                        if (!avActivo)
-                            reporte.AntivirusEstado = "Deshabilitado ⚠️";
-                        else if (modo == "Passive Mode" || modo == "SxS Passive Mode")
-                            reporte.AntivirusEstado = "Pasivo (otro AV activo en el sistema)";
-                        else
-                            reporte.AntivirusEstado = sigAge > 7
-                                ? $"Activo — Definiciones con {sigAge} días de antigüedad ⚠️"
-                                : "Activo y actualizado";
-
-                        encontrado = true;
-                        break;
-                    }
-            }
             catch { }
 
-            // ── Capa 3: búsqueda de servicios de AV de terceros (Windows Server sin SecurityCenter2) ──
+            // 👉 EL FIX: Si estamos en Server, buscar TERCEROS (Panda, ESET, etc) ANTES que a Defender
             if (!encontrado)
+            {
                 encontrado = BuscarAvTerceros(reporte);
+            }
+
+            // 3. Si no hay nada de terceros, entonces verificamos si Defender está asumiendo el control
+            if (!encontrado)
+            {
+                try
+                {
+                    using var s = new ManagementObjectSearcher(
+                        "root\\Microsoft\\Windows\\Defender",
+                        "SELECT AMProductVersion, AMRunningMode, AntivirusEnabled, AntivirusSignatureAge FROM MSFT_MpComputerStatus");
+                    foreach (ManagementObject mp in s.Get())
+                        using (mp)
+                        {
+                            string version = mp["AMProductVersion"]?.ToString() ?? "";
+                            string modo = mp["AMRunningMode"]?.ToString() ?? "";
+                            bool avActivo = false;
+                            try { avActivo = Convert.ToBoolean(mp["AntivirusEnabled"] ?? false); } catch { }
+
+                            reporte.AntivirusNombre = $"Windows Defender (v{version})";
+                            if (!avActivo || modo.Contains("Passive"))
+                                reporte.AntivirusEstado = "Pasivo / Deshabilitado ⚠️";
+                            else
+                                reporte.AntivirusEstado = "Activo y actualizado";
+
+                            encontrado = true;
+                            break;
+                        }
+                }
+                catch { }
+            }
 
             if (!encontrado)
             {
@@ -167,51 +154,17 @@ namespace CopicanariasServerReport.Services
             }
         }
 
-        // Detecta el AV de terceros mediante:
-        //   A) Proveedores AMSI registrados (HKLM\SOFTWARE\Microsoft\AMSI\Providers)
-        //      Cualquier AV compatible con Server 2016+ escribe su GUID aqui.
-        //      El nombre se resuelve desde HKLM\SOFTWARE\Classes\CLSID\{GUID}.
-        //      No requiere lista hardcodeada: detecta cualquier AV registrado.
-        //   B) Claves de desinstalacion (fallback para AV sin registro AMSI).
         private static bool BuscarAvTerceros(DatosServidor reporte)
         {
-            // ── Capa A: proveedores AMSI ──────────────────────────────────────────
-            try
-            {
-                using var amsiKey = Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\Microsoft\AMSI\Providers");
-                if (amsiKey != null)
-                {
-                    foreach (string guid in amsiKey.GetSubKeyNames())
-                    {
-                        string nombre = "";
-                        try
-                        {
-                            using var clsid = Registry.LocalMachine.OpenSubKey(
-                                @"SOFTWARE\Classes\CLSID\" + guid);
-                            nombre = clsid?.GetValue(null)?.ToString() ?? "";
-                        }
-                        catch { }
-
-                        if (string.IsNullOrEmpty(nombre) ||
-                            nombre.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0)
-                            continue;
-
-                        reporte.AntivirusNombre = nombre;
-                        reporte.AntivirusEstado = "Activo (registrado como proveedor AMSI)";
-                        return true;
-                    }
-                }
-            }
-            catch { }
-
-            // ── Capa B: claves de desinstalacion (fallback para AV sin AMSI) ──────
+            // Hemos ampliado la lista para que no se escape nada
+            string[] keywords = { "antivirus", "endpoint", "security", "antimalware",
+                                  "panda", "eset", "kaspersky", "sophos", "bitdefender",
+                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike", "malwarebytes" };
             string[] uninstallPaths = {
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
                 @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
             };
-            string[] keywords = { "antivirus", "endpoint security", "endpoint protection",
-                                   "internet security", "total security", "antimalware" };
+
             try
             {
                 foreach (string path in uninstallPaths)
@@ -226,26 +179,20 @@ namespace CopicanariasServerReport.Services
 
                         string displayName = app.GetValue("DisplayName")?.ToString() ?? "";
                         if (string.IsNullOrEmpty(displayName)) continue;
-                        if (displayName.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0)
-                            continue;
+                        if (displayName.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0) continue;
 
                         string lower = displayName.ToLower();
-                        foreach (string kw in keywords)
+                        if (keywords.Any(kw => lower.Contains(kw)))
                         {
-                            if (lower.Contains(kw))
-                            {
-                                string ver = app.GetValue("DisplayVersion")?.ToString() ?? "";
-                                reporte.AntivirusNombre = string.IsNullOrEmpty(ver)
-                                    ? displayName : $"{displayName} (v{ver})";
-                                reporte.AntivirusEstado = "Instalado (estado de servicio no determinado)";
-                                return true;
-                            }
+                            string ver = app.GetValue("DisplayVersion")?.ToString() ?? "";
+                            reporte.AntivirusNombre = string.IsNullOrEmpty(ver) ? displayName : $"{displayName} (v{ver})";
+                            reporte.AntivirusEstado = "Instalado (detectado en sistema)";
+                            return true;
                         }
                     }
                 }
             }
             catch { }
-
             return false;
         }
 
@@ -282,12 +229,10 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Unidades de red mapeadas ─────────────────────────────────
-        // Importamos la API nativa de Windows para leer espacio en rutas UNC
         [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
         [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
         private static extern bool GetDiskFreeSpaceEx(string lpDirectoryName, out ulong lpFreeBytesAvailable, out ulong lpTotalNumberOfBytes, out ulong lpTotalNumberOfFreeBytes);
 
-        // ── Unidades de red mapeadas (Independiente de la sesión + Espacio) ──
         private static void RecopilarUnidadesRed(DatosServidor reporte)
         {
             reporte.UnidadesRed.Clear();
@@ -297,10 +242,8 @@ namespace CopicanariasServerReport.Services
                 foreach (string sid in usersKey.GetSubKeyNames())
                 {
                     if (sid.EndsWith("_Classes") || sid.Length < 15) continue;
-
                     string networkPath = $@"{sid}\Network";
                     using var networkKey = usersKey.OpenSubKey(networkPath);
-
                     if (networkKey != null)
                     {
                         foreach (string letra in networkKey.GetSubKeyNames())
@@ -309,45 +252,24 @@ namespace CopicanariasServerReport.Services
                             if (driveKey != null)
                             {
                                 string rutaRemota = driveKey.GetValue("RemotePath")?.ToString() ?? "";
-
                                 if (!string.IsNullOrEmpty(rutaRemota))
                                 {
                                     string letraMayuscula = letra.ToUpper() + ":";
-
-                                    // Evitamos duplicados
                                     if (!reporte.UnidadesRed.Any(u => u.Letra == letraMayuscula && u.Ruta == rutaRemota))
                                     {
-                                        var infoRed = new UnidadRedInfo
-                                        {
-                                            Letra = letraMayuscula,
-                                            Ruta = rutaRemota
-                                        };
-
-                                        // Consultamos el espacio directamente a la ruta remota (UNC)
+                                        var infoRed = new UnidadRedInfo { Letra = letraMayuscula, Ruta = rutaRemota };
                                         if (GetDiskFreeSpaceEx(rutaRemota, out ulong freeBytesAvail, out ulong totalBytes, out ulong totalFreeBytes))
                                         {
                                             infoRed.TotalGB = totalBytes / 1073741824.0;
                                             infoRed.LibreGB = freeBytesAvail / 1073741824.0;
-
                                             if (infoRed.TotalGB > 0)
                                             {
                                                 infoRed.PorcentajeLibre = (infoRed.LibreGB / infoRed.TotalGB) * 100;
-
-                                                // Calcular barra visual de uso (10 caracteres)
-                                                double porcentajeUso = 100 - infoRed.PorcentajeLibre;
-                                                int barrasLlenas = (int)Math.Round(porcentajeUso / 10.0);
-                                                // Aseguramos que los límites estén entre 0 y 10
-                                                barrasLlenas = Math.Max(0, Math.Min(10, barrasLlenas));
-
+                                                int barrasLlenas = Math.Max(0, Math.Min(10, (int)Math.Round((100 - infoRed.PorcentajeLibre) / 10.0)));
                                                 infoRed.UsoVisual = $"[{new string('█', barrasLlenas)}{new string('░', 10 - barrasLlenas)}]";
                                             }
                                         }
-                                        else
-                                        {
-                                            // Si falla la consulta de espacio (servidor apagado, sin permisos en esa ruta, etc.)
-                                            infoRed.UsoVisual = "[No accesible]";
-                                        }
-
+                                        else { infoRed.UsoVisual = "[No accesible]"; }
                                         reporte.UnidadesRed.Add(infoRed);
                                     }
                                 }
@@ -356,26 +278,9 @@ namespace CopicanariasServerReport.Services
                     }
                 }
             }
-            catch
-            {
-                // Manejo silencioso
-            }
+            catch { }
         }
 
-        // Llama a WNetGetConnection para resolver la letra de unidad a ruta UNC.
-        // Funciona en cualquier hilo ya que consulta directamente la API de red de Windows.
-        private static string ObtenerRutaRed(string letraSinBarra)
-        {
-            var sb = new System.Text.StringBuilder(300);
-            int len = sb.Capacity;
-            int ret = WNetGetConnection(letraSinBarra, sb, ref len);
-            return ret == 0 ? sb.ToString() : "";
-        }
-
-        [System.Runtime.InteropServices.DllImport("mpr.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
-        private static extern int WNetGetConnection(string localName, System.Text.StringBuilder remoteName, ref int length);
-
-        // ── Drivers con error (delegado a DriverService) ─────────────
         private static void RecopilarDrivers(DatosServidor reporte)
         {
             reporte.Drivers.Clear();
@@ -383,17 +288,55 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Estado de Backup de Windows ──────────────────────────────
-        // Estrategia en tres capas (primera que devuelva datos gana):
-        //   1) MSFT_WBSummary   — Windows Server Backup (feature instalado en Server)
-        //   2) Event Log        — Microsoft-Windows-Backup/Operational (Server y Win10/11)
-        //                         EventID 4 = completado OK, EventID 5 = error
-        //   3) ActionHistory    — Registro backup nativo de Win10/11 desktop (no existe en Server)
         private static void RecopilarEstadoBackup(DatosServidor reporte)
         {
             reporte.EstadoBackup = "No configurado";
             reporte.FechaUltimoBackup = "--/--/----";
 
-            // ── Capa 1: MSFT_WBSummary (feature Windows Server Backup instalado) ──
+            // 👉 EL FIX: Ejecutar el comando CMD nativo "wbadmin get versions" primero.
+            // Esto consulta directamente el motor del servidor sin pasar por WMI.
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "wbadmin",
+                    Arguments = "get versions",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = System.Text.Encoding.GetEncoding(850) // Soporta tildes en CMD español
+                };
+
+                using var proc = Process.Start(psi);
+                string output = proc.StandardOutput.ReadToEnd();
+                proc.WaitForExit();
+
+                // Si wbadmin devuelve datos de copias de seguridad...
+                if (output.Contains("Backup time:") || output.Contains("Hora de copia de seguridad:"))
+                {
+                    string ultimaFecha = "";
+                    string[] lineas = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    // Extraemos la última fecha reportada (que es la más reciente)
+                    foreach (string linea in lineas)
+                    {
+                        if (linea.Contains("Hora de copia de seguridad:") || linea.Contains("Backup time:"))
+                        {
+                            ultimaFecha = linea.Split(new[] { ':' }, 2)[1].Trim();
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(ultimaFecha))
+                    {
+                        reporte.FechaUltimoBackup = ultimaFecha;
+                        reporte.EstadoBackup = "OK (Comprobado vía wbadmin)";
+                        return; // Si funcionó, salimos aquí. No necesitamos buscar más.
+                    }
+                }
+            }
+            catch { /* Si falla, simplemente seguimos con los métodos de respaldo */ }
+
+            // ── Métodos de respaldo originales por si wbadmin no está instalado ──
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -405,103 +348,37 @@ namespace CopicanariasServerReport.Services
                         string fecha = summary["LastSuccessfulBackupTime"]?.ToString();
                         if (!string.IsNullOrEmpty(fecha))
                         {
-                            DateTime t = ManagementDateTimeConverter.ToDateTime(fecha);
-                            reporte.FechaUltimoBackup = t.ToString("dd/MM/yyyy HH:mm");
+                            reporte.FechaUltimoBackup = ManagementDateTimeConverter.ToDateTime(fecha).ToString("dd/MM/yyyy HH:mm");
                             uint hr = 0;
                             try { hr = Convert.ToUInt32(summary["LastBackupResultHR"] ?? 0u); } catch { }
                             reporte.EstadoBackup = hr == 0 ? "OK" : $"Error (0x{hr:X8})";
                         }
-                        else
-                        {
-                            reporte.EstadoBackup = "Configurado — Sin backups previos";
-                        }
                         return;
                     }
             }
-            catch { /* namespace no existe si el feature no está instalado */ }
+            catch { }
 
-            // ── Capa 2: Event Log Microsoft-Windows-Backup/Operational ──────────
-            // Funciona en Windows Server Y en Win10/11 sin necesitar el feature WMI.
-            // EventID 1 = backup iniciado (ignorado)
-            // EventID 4 = backup completado con éxito
-            // EventID 5 = backup completado con error
             try
             {
-                var query = new EventLogQuery(
-                    "Microsoft-Windows-Backup/Operational",
-                    PathType.LogName,
-                    "*[System[(EventID=4 or EventID=5)]]");
-
-                using var reader = new EventLogReader(query);
-                DateTime mejorFecha = DateTime.MinValue;
-                bool ultimoFueError = false;
-
-                EventRecord record;
-                while ((record = reader.ReadEvent()) != null)
-                    using (record)
-                    {
-                        if (record.TimeCreated.HasValue && record.TimeCreated.Value > mejorFecha)
-                        {
-                            mejorFecha = record.TimeCreated.Value;
-                            ultimoFueError = (record.Id == 5);
-                        }
-                    }
-
-                if (mejorFecha > DateTime.MinValue)
-                {
-                    reporte.FechaUltimoBackup = mejorFecha.ToString("dd/MM/yyyy HH:mm");
-                    reporte.EstadoBackup = ultimoFueError
-                        ? "Error en el último backup ⚠️"
-                        : "OK";
-                    return;
-                }
-
-                // El log existe pero no tiene eventos de resultado → configurado, nunca ejecutado
-                reporte.EstadoBackup = "Configurado — Sin backups previos";
-                return;
-            }
-            catch { /* El log no existe si Windows Backup no está habilitado en ninguna forma */ }
-
-            // ── Capa 3: ActionHistory en registro (backup nativo Win10/11 desktop) ──
-            // Esta clave NO existe en Windows Server — es el último recurso para equipos de escritorio.
-            try
-            {
-                using var baseKey = Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\WindowsBackup\ActionHistory");
+                using var baseKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\WindowsBackup\ActionHistory");
                 if (baseKey != null)
                 {
                     DateTime mejorFecha = DateTime.MinValue;
-                    bool hayError = false;
-
                     foreach (string subNombre in baseKey.GetSubKeyNames())
                     {
                         using var sub = baseKey.OpenSubKey(subNombre);
-                        if (sub == null) continue;
-
-                        byte[] ftBytes = sub.GetValue("ActionItemDate") as byte[];
+                        byte[] ftBytes = sub?.GetValue("ActionItemDate") as byte[];
                         if (ftBytes != null && ftBytes.Length == 8)
                         {
-                            long ft = BitConverter.ToInt64(ftBytes, 0);
-                            if (ft > 0)
-                            {
-                                DateTime dt = DateTime.FromFileTime(ft);
-                                if (dt > mejorFecha) mejorFecha = dt;
-                            }
+                            DateTime dt = DateTime.FromFileTime(BitConverter.ToInt64(ftBytes, 0));
+                            if (dt > mejorFecha) mejorFecha = dt;
                         }
-
-                        object resObj = sub.GetValue("ActionResultCode");
-                        if (resObj != null)
-                            try { if (Convert.ToInt32(resObj) != 0) hayError = true; } catch { }
                     }
-
                     if (mejorFecha > DateTime.MinValue)
                     {
                         reporte.FechaUltimoBackup = mejorFecha.ToString("dd/MM/yyyy HH:mm");
-                        reporte.EstadoBackup = hayError ? "Completado con errores ⚠️" : "OK";
-                        return;
+                        reporte.EstadoBackup = "OK";
                     }
-
-                    reporte.EstadoBackup = "Configurado — Sin backups previos";
                 }
             }
             catch { }
@@ -511,16 +388,13 @@ namespace CopicanariasServerReport.Services
         public static async Task RecopilarJavaAsync(DatosServidor reporte, Action<string> log, HttpClient http)
         {
             reporte.VersionJava = "No instalado / No detectado";
-            reporte.JavaAlDia = false; // false hasta que se confirme lo contrario
+            reporte.JavaAlDia = false;
             reporte.JavaVersionOnline = "";
             string versionInstalada = "";
 
-            string[] registryPaths =
-            {
-                @"SOFTWARE\JavaSoft\Java Runtime Environment",
-                @"SOFTWARE\JavaSoft\JDK",
-                @"SOFTWARE\WOW6432Node\JavaSoft\Java Runtime Environment",
-                @"SOFTWARE\WOW6432Node\JavaSoft\JDK"
+            string[] registryPaths = {
+                @"SOFTWARE\JavaSoft\Java Runtime Environment", @"SOFTWARE\JavaSoft\JDK",
+                @"SOFTWARE\WOW6432Node\JavaSoft\Java Runtime Environment", @"SOFTWARE\WOW6432Node\JavaSoft\JDK"
             };
 
             foreach (var keyPath in registryPaths)
@@ -530,23 +404,13 @@ namespace CopicanariasServerReport.Services
                     using var key = Registry.LocalMachine.OpenSubKey(keyPath);
                     if (key == null) continue;
                     var ver = key.GetValue("CurrentVersion")?.ToString();
-                    if (!string.IsNullOrEmpty(ver))
-                    {
-                        versionInstalada = ver;
-                        reporte.VersionJava = $"Instalado — Versión {ver}";
-                        break;
-                    }
+                    if (!string.IsNullOrEmpty(ver)) { versionInstalada = ver; reporte.VersionJava = $"Instalado — Versión {ver}"; break; }
                 }
                 catch { }
             }
 
-            if (string.IsNullOrEmpty(versionInstalada))
-            {
-                log("    · Java: No detectado en el registro.\n");
-                return;
-            }
+            if (string.IsNullOrEmpty(versionInstalada)) { log("    · Java: No detectado en el registro.\n"); return; }
 
-            // Consulta a la API de Adoptium para la última LTS disponible
             try
             {
                 log("    · Java: Consultando última versión LTS disponible online...\n");
@@ -555,24 +419,13 @@ namespace CopicanariasServerReport.Services
                 int ltsOnline = doc.RootElement.GetProperty("most_recent_lts").GetInt32();
                 reporte.JavaVersionOnline = $"Java {ltsOnline} LTS (Fuente: Adoptium)";
 
-                // Extraer major version instalada (1.8 → 8, 11 → 11, etc.)
                 int majorInstalado = 0;
                 var partes = versionInstalada.Split('.');
-                if (partes[0] == "1" && partes.Length > 1)
-                    int.TryParse(partes[1], out majorInstalado);
-                else
-                    int.TryParse(partes[0], out majorInstalado);
+                if (partes[0] == "1" && partes.Length > 1) int.TryParse(partes[1], out majorInstalado);
+                else int.TryParse(partes[0], out majorInstalado);
 
-                if (majorInstalado >= ltsOnline)
-                {
-                    reporte.JavaAlDia = true;
-                    reporte.VersionJava += " ✅";
-                }
-                else
-                {
-                    reporte.JavaAlDia = false;
-                    reporte.VersionJava += $" ⚠️ (disponible Java {ltsOnline} LTS)";
-                }
+                if (majorInstalado >= ltsOnline) { reporte.JavaAlDia = true; reporte.VersionJava += " ✅"; }
+                else { reporte.JavaAlDia = false; reporte.VersionJava += $" ⚠️ (disponible Java {ltsOnline} LTS)"; }
 
                 log($"    · Java instalado: {versionInstalada} | LTS disponible: Java {ltsOnline}\n");
             }

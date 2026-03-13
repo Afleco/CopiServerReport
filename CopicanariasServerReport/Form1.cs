@@ -338,6 +338,13 @@ namespace CopicanariasServerReport
         // ═════════════════════════════════════════════════════════════
         private void Log(string texto)
         {
+            // ── Validación de subprocesos cruzados en la puerta de entrada ──
+            if (rtbLog.InvokeRequired)
+            {
+                rtbLog.Invoke(new Action(() => Log(texto)));
+                return;
+            }
+
             if (string.IsNullOrEmpty(texto)) return;
             string linea = texto.TrimEnd('\n', '\r');
 

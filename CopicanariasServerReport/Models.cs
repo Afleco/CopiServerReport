@@ -9,6 +9,13 @@ namespace CopicanariasServerReport
         public string Tipo { get; set; } = "";
         public string Estado { get; set; } = "";
         public double TamanoGB { get; set; } = 0;
+
+        // ── Datos S.M.A.R.T. detallados (obtenidos de root\wmi) ─────
+        // Son nullable porque no todos los discos/controladores los exponen.
+        public int? Temperatura { get; set; } = null;       // ºC  (atributo 194 ó 190)
+        public int? HorasEncendido { get; set; } = null;    // h   (atributo 9)
+        public int? PorcentajeSalud { get; set; } = null;   // %   (atributo 202 — solo SSDs)
+        public bool TieneDatosSalud { get; set; } = false;  // true si el atributo 202 existe
     }
 
     public class DiscoLogicoInfo

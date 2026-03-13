@@ -305,21 +305,51 @@ namespace CopicanariasServerReport.Pdf
                             {
                                 t.ColumnsDefinition(c =>
                                 {
-                                    c.RelativeColumn(4); // Modelo
-                                    c.RelativeColumn(1); // Interfaz
-                                    c.RelativeColumn(1); // Tamaño
-                                    c.RelativeColumn(2); // Estado S.M.A.R.T.
+                                    c.RelativeColumn(4);    // Modelo
+                                    c.RelativeColumn(1.2f); // Interfaz
+                                    c.RelativeColumn(1);    // Tamaño
+                                    c.RelativeColumn(2);    // Estado S.M.A.R.T.
+                                    c.ConstantColumn(36);   // Temp
+                                    c.ConstantColumn(48);   // Horas
+                                    c.ConstantColumn(44);   // Salud
                                 });
-                                foreach (var h in new[] { "Modelo", "Interfaz", "Tamaño", "Estado S.M.A.R.T." })
-                                    t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(8);
+                                foreach (var h in new[] { "Modelo", "Interfaz", "Tamaño", "Estado S.M.A.R.T.", "Temp", "Horas", "Salud" })
+                                    t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(7.5f);
 
                                 foreach (var d in r.Discos)
                                 {
                                     var cSmart = d.Estado.Contains("OK") ? Colors.Green.Darken2 : Colors.Red.Darken2;
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Modelo).FontSize(8);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Tipo).FontSize(8);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"{d.TamanoGB:F0} GB").FontSize(8);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Estado).FontColor(cSmart).SemiBold().FontSize(8);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Modelo).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Tipo).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"{d.TamanoGB:F0} GB").FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Estado).FontColor(cSmart).SemiBold().FontSize(7.5f);
+
+                                    // Temperatura
+                                    string tempTxt = d.Temperatura.HasValue ? $"{d.Temperatura}°C" : "—";
+                                    var cTemp = d.Temperatura.HasValue && d.Temperatura > 55
+                                        ? Colors.Red.Darken2
+                                        : d.Temperatura.HasValue && d.Temperatura > 45
+                                            ? Colors.Orange.Darken3
+                                            : Colors.Black;
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                        .Text(tempTxt).FontColor(cTemp).FontSize(7.5f);
+
+                                    // Horas encendido
+                                    string horasTxt = d.HorasEncendido.HasValue
+                                        ? $"{d.HorasEncendido:N0}h" : "—";
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                        .Text(horasTxt).FontSize(7.5f);
+
+                                    // % Salud (solo SSDs con atributo 202)
+                                    string saludTxt = d.TieneDatosSalud
+                                        ? $"{d.PorcentajeSalud}%" : "—";
+                                    var cSalud = d.TieneDatosSalud
+                                        ? (d.PorcentajeSalud < 10 ? Colors.Red.Darken2
+                                           : d.PorcentajeSalud < 30 ? Colors.Orange.Darken3
+                                           : Colors.Green.Darken2)
+                                        : Colors.Grey.Darken1;
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                                        .Text(saludTxt).FontColor(cSalud).FontSize(7.5f);
                                 }
                             });
                             col.Item().PaddingTop(6);
