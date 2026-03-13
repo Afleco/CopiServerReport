@@ -14,7 +14,8 @@ namespace CopicanariasServerReport.Services
 {
     public static class TelemetriaService
     {
-        public static void RecopilarTelemetria(DatosServidor reporte)
+        // Mantenemos el parámetro log opcional para no romper tu Form1.cs
+        public static void RecopilarTelemetria(DatosServidor reporte, Action<string> log = null)
         {
             RecopilarSistemaOperativo(reporte);
             RecopilarRAM(reporte);
@@ -87,7 +88,6 @@ namespace CopicanariasServerReport.Services
             reporte.AntivirusRuta = "";
             bool encontrado = false;
 
-            // 1. Capa Escritorio: SecurityCenter2
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -112,13 +112,11 @@ namespace CopicanariasServerReport.Services
             }
             catch { }
 
-            // 👉 EL FIX: Si estamos en Server, buscar TERCEROS (Panda, ESET, etc) ANTES que a Defender
             if (!encontrado)
             {
                 encontrado = BuscarAvTerceros(reporte);
             }
 
-            // 3. Si no hay nada de terceros, entonces verificamos si Defender está asumiendo el control
             if (!encontrado)
             {
                 try
@@ -156,10 +154,9 @@ namespace CopicanariasServerReport.Services
 
         private static bool BuscarAvTerceros(DatosServidor reporte)
         {
-            // Hemos ampliado la lista para que no se escape nada
             string[] keywords = { "antivirus", "endpoint", "security", "antimalware",
                                   "panda", "eset", "kaspersky", "sophos", "bitdefender",
-                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike", "malwarebytes" };
+                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike" };
             string[] uninstallPaths = {
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
                 @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
@@ -293,50 +290,57 @@ namespace CopicanariasServerReport.Services
             reporte.EstadoBackup = "No configurado";
             reporte.FechaUltimoBackup = "--/--/----";
 
-            // 👉 EL FIX: Ejecutar el comando CMD nativo "wbadmin get versions" primero.
-            // Esto consulta directamente el motor del servidor sin pasar por WMI.
             try
             {
+                string cmdPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe");
+
+                // Obligar a usar el CMD nativo de 64 bits si estamos en una app de 32 bits
+                if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+                {
+                    cmdPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "sysnative", "cmd.exe");
+                }
+
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "wbadmin",
-                    Arguments = "get versions",
+                    FileName = cmdPath,
+                    Arguments = "/c wbadmin get versions",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = System.Text.Encoding.GetEncoding(850) // Soporta tildes en CMD español
+                    CreateNoWindow = true
                 };
 
                 using var proc = Process.Start(psi);
                 string output = proc.StandardOutput.ReadToEnd();
                 proc.WaitForExit();
 
-                // Si wbadmin devuelve datos de copias de seguridad...
-                if (output.Contains("Backup time:") || output.Contains("Hora de copia de seguridad:"))
-                {
-                    string ultimaFecha = "";
-                    string[] lineas = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                string ultimaFecha = "";
+                string[] lineas = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
-                    // Extraemos la última fecha reportada (que es la más reciente)
-                    foreach (string linea in lineas)
+                foreach (string linea in lineas)
+                {
+                    string lower = linea.ToLower();
+
+                    // FIX: Evitamos leer la línea del "Destino de copia de seguridad"
+                    if (lower.Contains("backup time:") || lower.Contains("hora de copia") || lower.Contains("hora de la copia"))
                     {
-                        if (linea.Contains("Hora de copia de seguridad:") || linea.Contains("Backup time:"))
+                        var partes = linea.Split(new[] { ':' }, 2);
+                        if (partes.Length == 2)
                         {
-                            ultimaFecha = linea.Split(new[] { ':' }, 2)[1].Trim();
+                            ultimaFecha = partes[1].Trim();
                         }
                     }
+                }
 
-                    if (!string.IsNullOrEmpty(ultimaFecha))
-                    {
-                        reporte.FechaUltimoBackup = ultimaFecha;
-                        reporte.EstadoBackup = "OK (Comprobado vía wbadmin)";
-                        return; // Si funcionó, salimos aquí. No necesitamos buscar más.
-                    }
+                if (!string.IsNullOrEmpty(ultimaFecha))
+                {
+                    reporte.FechaUltimoBackup = ultimaFecha;
+                    reporte.EstadoBackup = "OK (vía wbadmin)";
+                    return;
                 }
             }
-            catch { /* Si falla, simplemente seguimos con los métodos de respaldo */ }
+            catch { }
 
-            // ── Métodos de respaldo originales por si wbadmin no está instalado ──
+            // ── Métodos de respaldo originales ──
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -409,11 +413,11 @@ namespace CopicanariasServerReport.Services
                 catch { }
             }
 
-            if (string.IsNullOrEmpty(versionInstalada)) { log("    · Java: No detectado en el registro.\n"); return; }
+            if (string.IsNullOrEmpty(versionInstalada)) { log?.Invoke("    · Java: No detectado en el registro.\n"); return; }
 
             try
             {
-                log("    · Java: Consultando última versión LTS disponible online...\n");
+                log?.Invoke("    · Java: Consultando última versión LTS disponible online...\n");
                 string json = await http.GetStringAsync("https://api.adoptium.net/v3/info/available_releases");
                 using var doc = JsonDocument.Parse(json);
                 int ltsOnline = doc.RootElement.GetProperty("most_recent_lts").GetInt32();
@@ -427,12 +431,12 @@ namespace CopicanariasServerReport.Services
                 if (majorInstalado >= ltsOnline) { reporte.JavaAlDia = true; reporte.VersionJava += " ✅"; }
                 else { reporte.JavaAlDia = false; reporte.VersionJava += $" ⚠️ (disponible Java {ltsOnline} LTS)"; }
 
-                log($"    · Java instalado: {versionInstalada} | LTS disponible: Java {ltsOnline}\n");
+                log?.Invoke($"    · Java instalado: {versionInstalada} | LTS disponible: Java {ltsOnline}\n");
             }
             catch
             {
                 reporte.JavaVersionOnline = "No se pudo verificar (sin conexión o error de red)";
-                log("    · Java: No se pudo consultar versión online.\n");
+                log?.Invoke("    · Java: No se pudo consultar versión online.\n");
             }
         }
     }

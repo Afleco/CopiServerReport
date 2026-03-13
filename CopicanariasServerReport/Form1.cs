@@ -359,7 +359,8 @@ namespace CopicanariasServerReport
 
             if (linea.Contains("sin acceso") ||
                 linea.Contains("No se pudo") ||
-                linea.Contains("ALERTA"))
+              ç
+              linea.Contains("ALERTA"))
             { Escribir(texto, ClrError, false, 9.5f); return; }
 
             if (linea.TrimStart().StartsWith(">>>"))
@@ -395,6 +396,13 @@ namespace CopicanariasServerReport
 
         private void Escribir(string texto, WinColor color, bool bold, float size)
         {
+            // ── Validación de subprocesos cruzados (Thread-Safe) ──
+            if (rtbLog.InvokeRequired)
+            {
+                rtbLog.Invoke(new Action(() => Escribir(texto, color, bold, size)));
+                return;
+            }
+
             rtbLog.SuspendLayout();
             rtbLog.SelectionStart = rtbLog.TextLength;
             rtbLog.SelectionLength = 0;
@@ -631,7 +639,7 @@ namespace CopicanariasServerReport
                 await ProcesoSmart();
 
             Log(">>> Recopilando telemetría del sistema...\n");
-            await Task.Run(() => TelemetriaService.RecopilarTelemetria(_reporte));
+            await Task.Run(() => TelemetriaService.RecopilarTelemetria(_reporte, Log));
             await TelemetriaService.RecopilarJavaAsync(_reporte, Log, _http);
 
             using var sfd = new SaveFileDialog
