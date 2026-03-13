@@ -40,11 +40,13 @@
             lblNumCerts = new Label();
             numCertificados = new NumericUpDown();
             panelCertsDinamico = new Panel();
+            pictureBox1 = new PictureBox();
             panelHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).BeginInit();
             panelDF.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numFirmas).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numCertificados).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             SuspendLayout();
             // 
             // panelHeader
@@ -247,6 +249,7 @@
             // 
             panelDF.BackColor = Color.FromArgb(232, 238, 255);
             panelDF.BorderStyle = BorderStyle.FixedSingle;
+            panelDF.Controls.Add(pictureBox1);
             panelDF.Controls.Add(lblDfTitulo);
             panelDF.Controls.Add(panelDfLinea);
             panelDF.Controls.Add(chkDigitalizacion);
@@ -373,6 +376,16 @@
             panelCertsDinamico.TabIndex = 26;
             panelCertsDinamico.Visible = false;
             // 
+            // pictureBox1
+            // 
+            pictureBox1.Image = Properties.Resources.DF_SERVER_logo_300x60;
+            pictureBox1.Location = new Point(280, -1);
+            pictureBox1.Name = "pictureBox1";
+            pictureBox1.Size = new Size(232, 59);
+            pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+            pictureBox1.TabIndex = 2;
+            pictureBox1.TabStop = false;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -406,6 +419,7 @@
             panelDF.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numFirmas).EndInit();
             ((System.ComponentModel.ISupportInitialize)numCertificados).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -439,5 +453,6 @@
         private Label lblNumCerts;
         private NumericUpDown numCertificados;
         private Panel panelCertsDinamico;
+        private PictureBox pictureBox1;
     }
 }

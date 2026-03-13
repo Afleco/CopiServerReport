@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
-using System.Net.Http;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+
 using CopicanariasServerReport.Pdf;
 using CopicanariasServerReport.Services;
 using QuestPDF.Infrastructure;
@@ -359,7 +353,7 @@ namespace CopicanariasServerReport
 
             if (linea.Contains("sin acceso") ||
                 linea.Contains("No se pudo") ||
-              ç
+              
               linea.Contains("ALERTA"))
             { Escribir(texto, ClrError, false, 9.5f); return; }
 

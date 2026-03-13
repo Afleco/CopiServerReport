@@ -1,13 +1,6 @@
-﻿using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.Eventing.Reader;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Management;
-using System.Net.Http;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.Win32;
 
 namespace CopicanariasServerReport.Services
@@ -24,7 +17,12 @@ namespace CopicanariasServerReport.Services
             RecopilarRed(reporte);
             RecopilarUnidadesRed(reporte);
             RecopilarDrivers(reporte);
-            RecopilarEstadoBackup(reporte);
+
+            // Solo perdemos tiempo abriendo el cmd y buscando backups si es técnico DF
+            if (reporte.EsTecnicoDf)
+            {
+                RecopilarEstadoBackup(reporte);
+            }
         }
 
         // ── Sistema Operativo ────────────────────────────────────────

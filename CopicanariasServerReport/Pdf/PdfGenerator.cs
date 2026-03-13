@@ -1,5 +1,4 @@
-﻿using System;
-using QuestPDF.Fluent;
+﻿using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
@@ -69,10 +68,14 @@ namespace CopicanariasServerReport.Pdf
                             if (!string.IsNullOrWhiteSpace(r.AntivirusRuta))
                                 Fila(t, "Ruta ejecutable:", r.AntivirusRuta, 8);
 
-                            var cBackup = r.EstadoBackup.Contains("OK") ? Colors.Green.Darken2
-                                        : r.EstadoBackup.Contains("Error") ? Colors.Red.Darken2
-                                        : Colors.Grey.Darken2;
-                            FilaColor(t, "Backup Windows:", $"{r.EstadoBackup}  [{r.FechaUltimoBackup}]", cBackup);
+                            // 👉 NUEVO: Solo mostramos la fila del Backup si el técnico es de DF-Server
+                            if (r.EsTecnicoDf)
+                            {
+                                var cBackup = r.EstadoBackup.Contains("OK") ? Colors.Green.Darken2
+                                            : r.EstadoBackup.Contains("Error") ? Colors.Red.Darken2
+                                            : Colors.Grey.Darken2;
+                                FilaColor(t, "Backup Windows:", $"{r.EstadoBackup}  [{r.FechaUltimoBackup}]", cBackup);
+                            }
                         });
 
                         // ── 3. WINDOWS UPDATE ─────────────────────────────

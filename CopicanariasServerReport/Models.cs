@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
+﻿
 namespace CopicanariasServerReport
 {
     public class DiscoInfo
