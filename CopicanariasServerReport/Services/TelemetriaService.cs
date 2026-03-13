@@ -7,7 +7,7 @@ namespace CopicanariasServerReport.Services
 {
     public static class TelemetriaService
     {
-        // Mantenemos el parámetro log opcional para no romper tu Form1.cs
+        // Mantenemos el parámetro log opcional para no romper Form1.cs
         public static void RecopilarTelemetria(DatosServidor reporte, Action<string> log = null)
         {
             RecopilarSistemaOperativo(reporte);

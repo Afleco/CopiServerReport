@@ -1,13 +1,11 @@
-﻿using System;
-using System.IO;
-
+﻿
 namespace CopicanariasServerReport.Services
 {
     public static class LimpiezaService
     {
         // Limpia un directorio recursivamente.
         // Devuelve (archivos borrados, bytes liberados).
-        // Nunca lanza excepciones: cada fallo se ignora silenciosamente.
+        // No lanza excepciones: cada fallo se ignora
         public static (int Archivos, long Bytes) LimpiarDirectorio(string ruta)
         {
             int c = 0; long b = 0;

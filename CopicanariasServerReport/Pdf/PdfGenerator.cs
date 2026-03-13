@@ -68,7 +68,7 @@ namespace CopicanariasServerReport.Pdf
                             if (!string.IsNullOrWhiteSpace(r.AntivirusRuta))
                                 Fila(t, "Ruta ejecutable:", r.AntivirusRuta, 8);
 
-                            // 👉 NUEVO: Solo mostramos la fila del Backup si el técnico es de DF-Server
+                            // Solo mostramos la fila del Backup si el técnico es de DF-Server
                             if (r.EsTecnicoDf)
                             {
                                 var cBackup = r.EstadoBackup.Contains("OK") ? Colors.Green.Darken2
@@ -210,7 +210,7 @@ namespace CopicanariasServerReport.Pdf
                                     c.RelativeColumn(2);   // Uso visual
                                 });
 
-                                // Nuevas cabeceras
+                                // cabeceras
                                 foreach (var h in new[] { "Letra", "Ruta de red", "Total", "Libre", "% Libre", "Uso visual" })
                                     t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(8);
 
@@ -397,7 +397,7 @@ namespace CopicanariasServerReport.Pdf
                         {
                             var df = r.DfServer;
 
-                            // Cabecera de sección con fondo azul DF + logo
+                            // Cabecera de sección con fondo azul DF 
                             col.Item().PaddingTop(10).Background(Colors.Blue.Darken3)
                                 .Padding(5).Row(row =>
                                 {

@@ -86,7 +86,7 @@ namespace CopicanariasServerReport
         // Orden visual: log/botones izquierda → panel DF (si aplica) → Generar/Realizar
         private void RecalcularAltura()
         {
-            // El contenido fijo termina donde acaba el log (Bottom del rtbLog)
+            
             int contenidoBottom = rtbLog.Bottom; // = 110 + 385 = 495
 
             if (!panelDF.Visible)
@@ -99,12 +99,12 @@ namespace CopicanariasServerReport
             }
 
             // Altura dinámica del panel DF
-            int alturaPanel = 38 + 3 * 32 + 12; // título + 3 filas + margen ≈ 122px
+            int alturaPanel = 38 + 3 * 32 + 12; 
             if (panelCertsDinamico.Visible)
                 alturaPanel += panelCertsDinamico.Height + 14;
 
             panelDF.Height = alturaPanel;
-            panelDF.Top = contenidoBottom + 8;   // pegado al log sin hueco
+            panelDF.Top = contenidoBottom + 8;  
 
             int yBotonesDF = panelDF.Bottom + 8;
             btnReport.Top = yBotonesDF;

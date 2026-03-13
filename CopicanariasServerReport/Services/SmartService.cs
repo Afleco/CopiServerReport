@@ -136,7 +136,7 @@ namespace CopicanariasServerReport.Services
                                 disco.TieneDatosSalud = attrs.TieneSalud;
                             }
 
-                            // 👉 INTENTO DIRECTO SI WMI FALLÓ 
+                            // INTENTO DIRECTO SI WMI FALLÓ 
                             bool hayDetalle = disco.Temperatura.HasValue || disco.HorasEncendido.HasValue || disco.TieneDatosSalud;
                             if (!hayDetalle)
                             {
@@ -183,7 +183,7 @@ namespace CopicanariasServerReport.Services
             string path = $@"\\.\PhysicalDrive{index}";
             using var hDrive = CreateFile(path, 0xC0000000, 3, IntPtr.Zero, 3, 0, IntPtr.Zero);
 
-            // Si no hay acceso o el disco no responde, salimos en silencio
+            // Si no hay acceso o el disco no responde, salimos 
             if (hDrive.IsInvalid) return null;
 
             var query = new STORAGE_PROPERTY_QUERY
