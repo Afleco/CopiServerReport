@@ -86,7 +86,7 @@ namespace CopicanariasServerReport
         // Orden visual: log/botones izquierda → panel DF (si aplica) → Generar/Realizar
         private void RecalcularAltura()
         {
-            
+
             int contenidoBottom = rtbLog.Bottom; // = 110 + 385 = 495
 
             if (!panelDF.Visible)
@@ -99,12 +99,12 @@ namespace CopicanariasServerReport
             }
 
             // Altura dinámica del panel DF
-            int alturaPanel = 38 + 3 * 32 + 12; 
+            int alturaPanel = 38 + 3 * 32 + 12;
             if (panelCertsDinamico.Visible)
                 alturaPanel += panelCertsDinamico.Height + 14;
 
             panelDF.Height = alturaPanel;
-            panelDF.Top = contenidoBottom + 8;  
+            panelDF.Top = contenidoBottom + 8;
 
             int yBotonesDF = panelDF.Bottom + 8;
             btnReport.Top = yBotonesDF;
@@ -353,7 +353,7 @@ namespace CopicanariasServerReport
 
             if (linea.Contains("sin acceso") ||
                 linea.Contains("No se pudo") ||
-              
+
               linea.Contains("ALERTA"))
             { Escribir(texto, ClrError, false, 9.5f); return; }
 
@@ -522,15 +522,15 @@ namespace CopicanariasServerReport
         {
             if (!TecnicoSeleccionado()) return;
             SetBotonesHabilitados(false);
-            LogBanner("⚡   MANTENIMIENTO AUTOMÁTICO COMPLETO",
+            LogBanner("⚡   REALIZANDO PREVENTIVA COMPLETA",
                 WinColor.FromArgb(100, 30, 180), WinColor.White);
 
             if (cmbTecnico?.SelectedItem != null)
                 _reporte.TecnicoResponsable = cmbTecnico.SelectedItem.ToString();
 
-            await ProcesoLimpieza();
             await ProcesoSmart();
-            await ProcesoUpdates();
+            await ProcesoLimpieza();
+            await ProcesoUpdates(); 
             await ProcesoDrivers();
             await ProcesoPDF();
 
@@ -688,6 +688,11 @@ namespace CopicanariasServerReport
                 Log($"      Causa: {ex.Message}\n");
                 Log("      Comprueba que la ruta es accesible y el archivo no está abierto.\n");
             }
+        }
+
+        private void lblTituloCabecera_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

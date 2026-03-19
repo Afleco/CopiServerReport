@@ -30,6 +30,7 @@
             btnAuto = new Button();
             rtbLog = new RichTextBox();
             panelDF = new Panel();
+            pictureBox1 = new PictureBox();
             lblDfTitulo = new Label();
             panelDfLinea = new Panel();
             chkDigitalizacion = new CheckBox();
@@ -40,13 +41,12 @@
             lblNumCerts = new Label();
             numCertificados = new NumericUpDown();
             panelCertsDinamico = new Panel();
-            pictureBox1 = new PictureBox();
             panelHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).BeginInit();
             panelDF.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numFirmas).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numCertificados).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             SuspendLayout();
             // 
             // panelHeader
@@ -68,9 +68,10 @@
             lblTituloCabecera.ForeColor = Color.DarkBlue;
             lblTituloCabecera.Location = new Point(265, 28);
             lblTituloCabecera.Name = "lblTituloCabecera";
-            lblTituloCabecera.Size = new Size(266, 30);
+            lblTituloCabecera.Size = new Size(218, 30);
             lblTituloCabecera.TabIndex = 1;
-            lblTituloCabecera.Text = "Panel de Mantenimiento";
+            lblTituloCabecera.Text = "Panel de Preventiva";
+            lblTituloCabecera.Click += lblTituloCabecera_Click;
             // 
             // pictureBoxLogo
             // 
@@ -113,7 +114,7 @@
             btnCleanTemp.FlatStyle = FlatStyle.Popup;
             btnCleanTemp.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnCleanTemp.ForeColor = SystemColors.Control;
-            btnCleanTemp.Location = new Point(30, 165);
+            btnCleanTemp.Location = new Point(30, 236);
             btnCleanTemp.Name = "btnCleanTemp";
             btnCleanTemp.Size = new Size(300, 45);
             btnCleanTemp.TabIndex = 1;
@@ -129,7 +130,7 @@
             btnSmart.FlatStyle = FlatStyle.Popup;
             btnSmart.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnSmart.ForeColor = SystemColors.Control;
-            btnSmart.Location = new Point(30, 233);
+            btnSmart.Location = new Point(29, 169);
             btnSmart.Name = "btnSmart";
             btnSmart.Size = new Size(300, 45);
             btnSmart.TabIndex = 2;
@@ -229,7 +230,7 @@
             btnAuto.Name = "btnAuto";
             btnAuto.Size = new Size(324, 70);
             btnAuto.TabIndex = 6;
-            btnAuto.Text = "⚡ Realizar Mantenimiento Automático ⚡";
+            btnAuto.Text = "⚡ Realizar Preventiva Completa ⚡";
             btnAuto.UseVisualStyleBackColor = false;
             btnAuto.Click += btnAuto_Click;
             // 
@@ -265,6 +266,16 @@
             panelDF.Size = new Size(770, 122);
             panelDF.TabIndex = 20;
             panelDF.Visible = false;
+            // 
+            // pictureBox1
+            // 
+            pictureBox1.Image = Properties.Resources.DF_SERVER_logo_300x60;
+            pictureBox1.Location = new Point(280, -1);
+            pictureBox1.Name = "pictureBox1";
+            pictureBox1.Size = new Size(232, 59);
+            pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+            pictureBox1.TabIndex = 2;
+            pictureBox1.TabStop = false;
             // 
             // lblDfTitulo
             // 
@@ -376,16 +387,6 @@
             panelCertsDinamico.TabIndex = 26;
             panelCertsDinamico.Visible = false;
             // 
-            // pictureBox1
-            // 
-            pictureBox1.Image = Properties.Resources.DF_SERVER_logo_300x60;
-            pictureBox1.Location = new Point(280, -1);
-            pictureBox1.Name = "pictureBox1";
-            pictureBox1.Size = new Size(232, 59);
-            pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-            pictureBox1.TabIndex = 2;
-            pictureBox1.TabStop = false;
-            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -417,9 +418,9 @@
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).EndInit();
             panelDF.ResumeLayout(false);
             panelDF.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
             ((System.ComponentModel.ISupportInitialize)numFirmas).EndInit();
             ((System.ComponentModel.ISupportInitialize)numCertificados).EndInit();
-            ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }

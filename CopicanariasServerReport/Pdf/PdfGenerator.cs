@@ -499,7 +499,7 @@ namespace CopicanariasServerReport.Pdf
                     // ══ PIE DE PÁGINA ══════════════════════════════════════
                     page.Footer().AlignCenter().Text(x =>
                     {
-                        x.Span("Grupo Copicanarias · Informe de Mantenimiento Automático · Página ")
+                        x.Span("Grupo Copicanarias · Informe de Preventiva · Página ")
                             .FontSize(7).FontColor(Colors.Grey.Medium);
                         x.CurrentPageNumber().FontSize(7).FontColor(Colors.Grey.Medium);
                         x.Span(" de ").FontSize(7).FontColor(Colors.Grey.Medium);
