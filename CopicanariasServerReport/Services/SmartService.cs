@@ -1,15 +1,14 @@
 ﻿using System.Diagnostics;
-using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
-using System.Text.Json;
+using LibreHardwareMonitor.Hardware;
 using Microsoft.Win32.SafeHandles;
 
 namespace CopicanariasServerReport.Services
 {
     public static class SmartService
     {
-        // ── Funciones nativas de Windows (Plan B) ──
+        // ── Funciones nativas de Windows (Plan B / Fallback) ──
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern SafeFileHandle CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode, IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
 
@@ -25,27 +24,43 @@ namespace CopicanariasServerReport.Services
             public uint ProtocolDataRequestSubValue3; public uint Reserved;
         }
 
+        // ── Patrón Visitor requerido por LibreHardwareMonitor ──
+        private class UpdateVisitor : IVisitor
+        {
+            public void VisitComputer(IComputer computer) { computer.Traverse(this); }
+            public void VisitHardware(IHardware hardware)
+            {
+                hardware.Update();
+                foreach (IHardware sub in hardware.SubHardware) sub.Accept(this);
+            }
+            public void VisitSensor(ISensor sensor) { }
+            public void VisitParameter(IParameter parameter) { }
+        }
+
+        // DTO temporal para cruzar los datos de LHM con los de Windows
+        private class LhmDiskData
+        {
+            public string Name { get; set; } = "";
+            public int? Temperature { get; set; }
+            public int? HealthPercent { get; set; }
+            public int? HoursUsed { get; set; }
+        }
+
         public static async Task<List<DiscoInfo>> ObtenerDiscosAsync(Action<string> log)
         {
             var discos = new List<DiscoInfo>();
+            log($">>> ⚡ Iniciando motor LibreHardwareMonitor...\n");
 
-            // Extraemos el exe incrustado a la carpeta temporal
-            string smartctlPath = ExtraerSmartctlOculto();
-            bool usaSmartctl = !string.IsNullOrEmpty(smartctlPath) && File.Exists(smartctlPath);
-
-            if (usaSmartctl)
-                log($">>> ⚡ Motor de diagnóstico avanzado (smartctl) cargado en memoria...\n");
-            else
-                log($">>> ⚠️ Motor avanzado no disponible. Usando nativo (WMI/NVMe)...\n");
-
-            await Task.Run(async () =>
+            await Task.Run(() =>
             {
+                // 1. Extraemos los sensores usando LHM
+                var datosLhm = ExtraerDatosLHM(log);
+
+                // 2. Pre-cargamos La telemetria de Windows (Plano B)
                 var smartPorIndice = new Dictionary<int, SmartAtributos>();
+                CargarTelemetriaWmi(smartPorIndice);
 
-                // Si NO hay smartctl, pre-cargamos la telemetría de Windows por si acaso
-                if (!usaSmartctl) CargarTelemetriaWmi(smartPorIndice);
-
-                // ── BASE DE VERDAD: Win32_DiskDrive ──
+                // 3. BASE DE VERDAD: Win32_DiskDrive
                 using var s = new ManagementObjectSearcher("SELECT Model, Status, InterfaceType, Size, Index FROM Win32_DiskDrive");
                 foreach (ManagementObject d in s.Get())
                 {
@@ -65,47 +80,61 @@ namespace CopicanariasServerReport.Services
                             TamanoGB = sizeBytes / 1073741824.0
                         };
 
-                        // Regla para el estado inicial
                         if (disco.Tipo == "USB")
                             disco.Estado = "N/A (Dispositivo extraíble)";
                         else
                             disco.Estado = estadoPnp.ToUpper() == "OK" ? "Operativo (Conectado)" : $"Error de sistema ({estadoPnp})";
 
-                        // ── RADIOGRAFÍA S.M.A.R.T. ──
-                        bool smartExtraido = false;
+                        // ── PASO 1: INTENTAR CON LHM ──
+                        var discoLhm = datosLhm.FirstOrDefault(x =>
+                            x.Name.IndexOf(modelo, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            modelo.IndexOf(x.Name, StringComparison.OrdinalIgnoreCase) >= 0);
 
-                        if (usaSmartctl)
+                        if (discoLhm != null)
                         {
-                            // Interrogamos al disco con smartctl
-                            string json = await EjecutarComandoOcultoAsync(smartctlPath, $"-a -j /dev/pd{diskIndex}");
-                            if (!string.IsNullOrEmpty(json))
+                            disco.Temperatura = discoLhm.Temperature;
+                            disco.HorasEncendido = discoLhm.HoursUsed;
+                            if (discoLhm.HealthPercent.HasValue)
                             {
-                                smartExtraido = ParsearJsonSmartctl(json, disco);
+                                disco.PorcentajeSalud = discoLhm.HealthPercent;
+                                disco.TieneDatosSalud = true;
+                            }
+                            datosLhm.Remove(discoLhm);
+                        }
+
+                        // ── PASO 2: FALLBACK INTELIGENTE (Rellenar los huecos) ──
+                        // Si LHM no encontró la temperatura, horas o salud, pedimos ayuda al WMI de Windows
+                        if (smartPorIndice.TryGetValue(diskIndex, out var attrs))
+                        {
+                            if (!disco.Temperatura.HasValue) disco.Temperatura = attrs.Temperatura;
+                            if (!disco.HorasEncendido.HasValue) disco.HorasEncendido = attrs.HorasEncendido;
+                            if (!disco.TieneDatosSalud && attrs.TieneSalud)
+                            {
+                                disco.PorcentajeSalud = attrs.PorcentajeSalud;
+                                disco.TieneDatosSalud = true;
                             }
                         }
 
-                        // Fallback al motor nativo en C# si smartctl falló o no está
-                        if (!smartExtraido && !usaSmartctl)
+                        // ── PASO 3: TÚNEL DIRECTO NVME (Último recurso) ──
+                        if (!disco.Temperatura.HasValue || !disco.HorasEncendido.HasValue || !disco.TieneDatosSalud)
                         {
-                            if (smartPorIndice.TryGetValue(diskIndex, out var attrs))
+                            var nvmeAttrs = LeerNvmeDirecto(diskIndex);
+                            if (nvmeAttrs != null)
                             {
-                                disco.Temperatura = attrs.Temperatura;
-                                disco.HorasEncendido = attrs.HorasEncendido;
-                                disco.PorcentajeSalud = attrs.PorcentajeSalud;
-                                disco.TieneDatosSalud = attrs.TieneSalud;
-                            }
-
-                            if (!disco.Temperatura.HasValue && !disco.HorasEncendido.HasValue && !disco.TieneDatosSalud)
-                            {
-                                var nvmeAttrs = LeerNvmeDirecto(diskIndex);
-                                if (nvmeAttrs != null)
+                                if (!disco.Temperatura.HasValue) disco.Temperatura = nvmeAttrs.Temperatura;
+                                if (!disco.HorasEncendido.HasValue) disco.HorasEncendido = nvmeAttrs.HorasEncendido;
+                                if (!disco.TieneDatosSalud && nvmeAttrs.TieneSalud)
                                 {
-                                    disco.Temperatura = nvmeAttrs.Temperatura;
-                                    disco.HorasEncendido = nvmeAttrs.HorasEncendido;
                                     disco.PorcentajeSalud = nvmeAttrs.PorcentajeSalud;
-                                    disco.TieneDatosSalud = nvmeAttrs.TieneSalud;
+                                    disco.TieneDatosSalud = true;
                                 }
                             }
+                        }
+
+                        // ── ASCENSIÓN DE DISCOS USB ──
+                        if (disco.Tipo == "USB" && (disco.TieneDatosSalud || disco.Temperatura.HasValue))
+                        {
+                            disco.Estado = "Operativo (Conectado)";
                         }
 
                         discos.Add(disco);
@@ -118,137 +147,74 @@ namespace CopicanariasServerReport.Services
         }
 
         // ════════════════════════════════════════════════════════════════════
-        // EXTRACCIÓN DEL EJECUTABLE INCRUSTADO
+        // MOTOR LIBRE HARDWARE MONITOR
         // ════════════════════════════════════════════════════════════════════
-        private static string ExtraerSmartctlOculto()
+        private static List<LhmDiskData> ExtraerDatosLHM(Action<string> log)
         {
-            // Lo guardaremos en la carpeta temporal de Windows del usuario
-            string tempPath = Path.Combine(Path.GetTempPath(), "smartctl_copicanarias.exe");
-
-            // Si ya lo extrajimos en una ejecución anterior, nos ahorramos el trabajo
-            if (File.Exists(tempPath)) return tempPath;
+            var resultados = new List<LhmDiskData>();
+            Computer computer = null;
 
             try
             {
-                // El nombre del recurso sigue el formato: EspacioDeNombres.NombreDelArchivo.exe
-                string resourceName = "CopicanariasServerReport.smartctl.exe";
+                computer = new Computer { IsStorageEnabled = true };
+                computer.Open();
+                computer.Accept(new UpdateVisitor());
 
-                using Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
-                if (stream == null) return null; // No se encontró incrustado
-
-                using FileStream fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
-                stream.CopyTo(fileStream);
-
-                return tempPath;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        // ════════════════════════════════════════════════════════════════════
-        // PARSEO DE JSON (Extrae Temp, Horas, Salud, Modelo Interno y Estado)
-        // ════════════════════════════════════════════════════════════════════
-        private static bool ParsearJsonSmartctl(string json, DiscoInfo disco)
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-                bool extraidoAlgo = false;
-
-                // 1. INTENTAR RESCATAR EL NOMBRE REAL (Solo si es USB)
-                if (disco.Tipo == "USB")
+                foreach (IHardware hw in computer.Hardware)
                 {
-                    if (root.TryGetProperty("model_name", out var modelProp) && !string.IsNullOrWhiteSpace(modelProp.GetString()))
+                    if (hw.HardwareType != HardwareType.Storage) continue;
+
+                    var dto = new LhmDiskData { Name = hw.Name ?? "Desconocido" };
+
+                    // ── Temperatura ──
+                    var tempSensor = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature && s.Value.HasValue);
+                    if (tempSensor != null) dto.Temperature = (int)Math.Round(tempSensor.Value.Value);
+
+                    // ── Salud / Vida útil (AMPLIADO) ──
+                    var healthSensor = hw.Sensors.FirstOrDefault(s =>
+                        (s.SensorType == SensorType.Level || s.SensorType == SensorType.Data) && s.Value.HasValue &&
+                        (s.Name.IndexOf("Life", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         s.Name.IndexOf("Percentage Used", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         s.Name.IndexOf("wear", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         s.Name.IndexOf("spare", StringComparison.OrdinalIgnoreCase) >= 0 || // WD a veces usa Available Spare
+                         s.Name.IndexOf("endurance", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         s.Name.IndexOf("health", StringComparison.OrdinalIgnoreCase) >= 0));
+
+                    if (healthSensor != null)
                     {
-                        disco.Modelo = modelProp.GetString(); // Cambiamos por el modelo real del chip
-                    }
-                }
-
-                // 2. TEMPERATURA
-                if (root.TryGetProperty("temperature", out var tempProp) && tempProp.TryGetProperty("current", out var curTemp))
-                {
-                    disco.Temperatura = curTemp.GetInt32();
-                    extraidoAlgo = true;
-                }
-
-                // 3. HORAS DE ENCENDIDO
-                if (root.TryGetProperty("power_on_time", out var powProp) && powProp.TryGetProperty("hours", out var hoursProp))
-                {
-                    disco.HorasEncendido = hoursProp.GetInt32();
-                    extraidoAlgo = true;
-                }
-
-                // 4. SALUD % (NVMe)
-                if (root.TryGetProperty("nvme_smart_health_information_log", out var nvmeProp) && nvmeProp.TryGetProperty("percentage_used", out var wearProp))
-                {
-                    disco.PorcentajeSalud = 100 - wearProp.GetInt32();
-                    disco.TieneDatosSalud = true;
-                    extraidoAlgo = true;
-                }
-                // SALUD % (SATA Clásico)
-                else if (root.TryGetProperty("ata_smart_attributes", out var ataProp) && ataProp.TryGetProperty("table", out var tableProp))
-                {
-                    foreach (var attr in tableProp.EnumerateArray())
-                    {
-                        if (attr.TryGetProperty("id", out var idProp) && attr.TryGetProperty("value", out var valProp))
+                        float rawValue = healthSensor.Value.Value;
+                        // Si el sensor es % de uso, lo invertimos. Si es Available Spare o Life, se queda igual.
+                        if (healthSensor.Name.Equals("Percentage Used", StringComparison.OrdinalIgnoreCase) ||
+                            healthSensor.Name.Equals("Wear", StringComparison.OrdinalIgnoreCase))
                         {
-                            int id = idProp.GetInt32();
-                            // IDs comunes de fabricantes para la salud del SSD
-                            if (id == 202 || id == 231 || id == 169 || id == 173 || id == 177)
-                            {
-                                disco.PorcentajeSalud = valProp.GetInt32();
-                                disco.TieneDatosSalud = true;
-                                extraidoAlgo = true;
-                                break;
-                            }
+                            dto.HealthPercent = (int)Math.Round(100f - rawValue);
+                        }
+                        else
+                        {
+                            dto.HealthPercent = (int)Math.Round(rawValue);
                         }
                     }
+
+                    // ── Horas de encendido ──
+                    var hourSensor = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Factor && s.Value.HasValue && s.Name.IndexOf("power on hour", StringComparison.OrdinalIgnoreCase) >= 0)
+                                  ?? hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Data && s.Value.HasValue && s.Name.IndexOf("power on hour", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                    if (hourSensor != null) dto.HoursUsed = (int)Math.Round(hourSensor.Value.Value);
+
+                    resultados.Add(dto);
                 }
-
-                // 5. ESTADO S.M.A.R.T. GENERAL
-                if (root.TryGetProperty("smart_status", out var statusProp) && statusProp.TryGetProperty("passed", out var passedProp))
-                {
-                    bool smartOk = passedProp.GetBoolean();
-
-                    if (!smartOk)
-                    {
-                        // Si S.M.A.R.T. dice que falla, ponemos la alerta obligatoriamente
-                        disco.Estado = "ALERTA (Fallo SMART detectado)";
-                    }
-                    else if (disco.Tipo == "USB")
-                    {
-                        // Si es un USB inteligente y ha pasado el test, lo ascendemos
-                        disco.Estado = "Operativo (Conectado)";
-                    }
-                }
-
-                return extraidoAlgo;
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                log($">>> ⚠️ LHM bloqueado o sin permisos: {ex.Message}. Usando nativo...\n");
             }
-        }
-
-        private static async Task<string> EjecutarComandoOcultoAsync(string exePath, string argumentos)
-        {
-            var psi = new ProcessStartInfo
+            finally
             {
-                FileName = exePath,
-                Arguments = argumentos,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                StandardOutputEncoding = System.Text.Encoding.UTF8
-            };
-            using var proc = Process.Start(psi);
-            if (proc == null) return null;
-            string output = await proc.StandardOutput.ReadToEndAsync();
-            await proc.WaitForExitAsync();
-            return output;
+                // MUY IMPORTANTE: Cerrar el computer libera el driver del kernel
+                computer?.Close();
+            }
+
+            return resultados;
         }
 
         // ════════════════════════════════════════════════════════════════════

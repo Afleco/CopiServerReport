@@ -316,12 +316,12 @@ namespace CopicanariasServerReport.Pdf
                                     c.ConstantColumn(48);   // Horas
                                     c.ConstantColumn(44);   // Salud
                                 });
-                                foreach (var h in new[] { "Modelo", "Interfaz", "Tamaño", "Estado S.M.A.R.T.", "Temp", "Horas", "Salud" })
+                                foreach (var h in new[] { "Modelo", "Interfaz", "Tamaño", "Estado S.M.A.R.T", "Temp", "Horas", "Salud" })
                                     t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(7.5f);
 
                                 foreach (var d in r.Discos)
                                 {
-                                    var cSmart = d.Estado.Contains("OK") ? Colors.Green.Darken2 : Colors.Red.Darken2;
+                                    var cSmart = d.Estado.Contains("OKs") ? Colors.Green.Darken2 : Colors.Red.Darken2;
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Modelo).FontSize(7.5f);
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Tipo).FontSize(7.5f);
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"{d.TamanoGB:F0} GB").FontSize(7.5f);
