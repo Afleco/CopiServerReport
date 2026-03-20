@@ -121,12 +121,12 @@ namespace CopicanariasServerReport
                 int obsoletos = _reporte.Drivers.Count;
                 if (obsoletos > 0)
                 {
-                    lblValDrv.Text = $"{obsoletos} Desactualizados";
+                    lblValDrv.Text = $"{obsoletos} Con errores";
                     lblValDrv.ForeColor = WinColor.FromArgb(226, 30, 45);
                 }
                 else
                 {
-                    lblValDrv.Text = "Todos al día";
+                    lblValDrv.Text = "Todos operativos";
                     lblValDrv.ForeColor = WinColor.FromArgb(34, 197, 94);
                 }
             }
