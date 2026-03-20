@@ -1,4 +1,3 @@
-
 using CopicanariasServerReport.Pdf;
 using CopicanariasServerReport.Services;
 using QuestPDF.Infrastructure;
@@ -15,15 +14,15 @@ namespace CopicanariasServerReport
         // Controles de certificados creados dinámicamente
         private readonly List<(TextBox Nombre, DateTimePicker Fecha)> _certControls = new();
 
-        // Colores del log
-        private static readonly WinColor ClrFondo = WinColor.FromArgb(238, 241, 248);
-        private static readonly WinColor ClrTexto = WinColor.FromArgb(40, 40, 40);
-        private static readonly WinColor ClrSeccion = WinColor.FromArgb(28, 78, 170);
-        private static readonly WinColor ClrOk = WinColor.FromArgb(20, 120, 55);
-        private static readonly WinColor ClrAviso = WinColor.FromArgb(170, 90, 0);
-        private static readonly WinColor ClrError = WinColor.FromArgb(180, 20, 20);
-        private static readonly WinColor ClrDetalle = WinColor.FromArgb(65, 65, 75);
-        private static readonly WinColor ClrSubdetalle = WinColor.FromArgb(120, 120, 130);
+        // 🎨 PALETA DE COLORES (Estilo Consola)
+        private static readonly WinColor ClrFondo = WinColor.FromArgb(30, 30, 30);
+        private static readonly WinColor ClrTexto = WinColor.FromArgb(212, 212, 212);
+        private static readonly WinColor ClrSeccion = WinColor.FromArgb(86, 156, 214);
+        private static readonly WinColor ClrOk = WinColor.FromArgb(78, 201, 176);
+        private static readonly WinColor ClrAviso = WinColor.FromArgb(206, 145, 120);
+        private static readonly WinColor ClrError = WinColor.FromArgb(244, 71, 71);
+        private static readonly WinColor ClrDetalle = WinColor.FromArgb(156, 220, 254);
+        private static readonly WinColor ClrSubdetalle = WinColor.FromArgb(128, 128, 128);
 
         public Form1()
         {
@@ -36,26 +35,22 @@ namespace CopicanariasServerReport
         {
             QuestPDF.Settings.License = LicenseType.Community;
 
-            // Centrar horizontalmente en el área de trabajo y subir un 15%
-            // para que al expandirse con el panel DF no quede bajo la barra de tareas
             var workArea = Screen.GetWorkingArea(this);
             this.Location = new System.Drawing.Point(
                 workArea.Left + (workArea.Width - this.Width) / 2,
                 workArea.Top + (int)((workArea.Height - this.Height) * 0.30)
             );
 
+            // Ajustes iniciales del Log oscuro
             rtbLog.BackColor = ClrFondo;
-            rtbLog.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            rtbLog.Font = new Font("Consolas", 10f, FontStyle.Regular);
             rtbLog.ForeColor = ClrTexto;
             rtbLog.Clear();
 
-            // ── Edita aquí los técnicos del desplegable ──────────────
             cmbTecnico.Items.Add("— Seleccione un técnico —");
-            // Técnicos de Sistemas
             cmbTecnico.Items.Add("Alejandro Martel");
             cmbTecnico.Items.Add("Himar Bautista");
             cmbTecnico.Items.Add("Mencey Medina");
-            // Técnicos DF-Server (deben contener el texto "DF-Server")
             cmbTecnico.Items.Add("Aarón Ojeda (DF-Server)");
             cmbTecnico.Items.Add("Francisco Muñoz (DF-Server)");
             cmbTecnico.SelectedIndex = 0;
@@ -64,11 +59,189 @@ namespace CopicanariasServerReport
         }
 
         // ═════════════════════════════════════════════════════════════
-        // PANEL DF-SERVER — mostrar / ocultar según técnico seleccionado
+        // ALTERNAR VISTA: DASHBOARD VS LOG TÉCNICO
+        // ═════════════════════════════════════════════════════════════
+        private void btnToggleLog_Click(object sender, EventArgs e)
+        {
+            if (rtbLog.Visible)
+            {
+                // Ocultar Log, Mostrar Dashboard
+                rtbLog.Visible = false;
+                pnlCardUpd.Visible = true;
+                pnlCardDrv.Visible = true;
+                pnlCardTmp.Visible = true;
+                pnlCardSmart.Visible = true;
+
+                btnToggleLog.Text = "👁 Ver Log Técnico";
+                btnToggleLog.BackColor = WinColor.FromArgb(100, 100, 100); // Gris
+            }
+            else
+            {
+                // Mostrar Log, Ocultar Dashboard
+                rtbLog.Visible = true;
+                pnlCardUpd.Visible = false;
+                pnlCardDrv.Visible = false;
+                pnlCardTmp.Visible = false;
+                pnlCardSmart.Visible = false;
+
+                btnToggleLog.Text = "📊 Ver Dashboard";
+                btnToggleLog.BackColor = WinColor.FromArgb(17, 35, 108); // Azul Copicanarias
+            }
+        }
+
+        // ═════════════════════════════════════════════════════════════
+        // ACTUALIZADOR DEL DASHBOARD VISUAL
+        // ═════════════════════════════════════════════════════════════
+        private void ActualizarDashboard()
+        {
+            // 1. Tarjeta Windows Update (CORREGIDA LÓGICA)
+            if (_reporte.UpdatesEjecutado)
+            {
+                // Mostramos detalles de importantes y opcionales
+                if (_reporte.UpdatesImportantes > 0 || _reporte.UpdatesOpcionales > 0)
+                {
+                    lblValUpd.Text = $"{_reporte.UpdatesImportantes} Importantes\n{_reporte.UpdatesOpcionales} Opcionales";
+
+                    // Color: Rojo si hay importantes, Naranja si solo hay opcionales
+                    if (_reporte.UpdatesImportantes > 0)
+                        lblValUpd.ForeColor = WinColor.FromArgb(226, 30, 45); // Rojo
+                    else
+                        lblValUpd.ForeColor = WinColor.FromArgb(206, 145, 120); // Naranja
+                }
+                else
+                {
+                    lblValUpd.Text = "Todo al día\n(0 pendientes)";
+                    lblValUpd.ForeColor = WinColor.FromArgb(34, 197, 94); // Verde ok
+                }
+            }
+
+            // 2. Tarjeta Drivers (CORREGIDA LÓGICA)
+            if (_reporte.DriversEjecutado)
+            {
+                int obsoletos = _reporte.Drivers.Count;
+                if (obsoletos > 0)
+                {
+                    lblValDrv.Text = $"{obsoletos} Desactualizados";
+                    lblValDrv.ForeColor = WinColor.FromArgb(226, 30, 45);
+                }
+                else
+                {
+                    lblValDrv.Text = "Todos al día";
+                    lblValDrv.ForeColor = WinColor.FromArgb(34, 197, 94);
+                }
+            }
+
+            // 3. Tarjeta Limpieza
+            if (_reporte.LimpiezaEjecutada)
+            {
+                lblValTmp.Text = $"{_reporte.ArchivosBorrados} Archivos\n({_reporte.BytesLiberados / 1048576.0:F1} MB)";
+                lblValTmp.ForeColor = WinColor.FromArgb(17, 35, 108); // Azul
+            }
+
+            // 4. Tarjeta S.M.A.R.T. (CON ETIQUETAS VISUALES)
+            if (_reporte.Discos.Count > 0)
+            {
+                int discosSanos = _reporte.Discos.Count(d => !d.Estado.Contains("ALERTA") && !d.Estado.Contains("Error"));
+                int discosPeligro = _reporte.Discos.Count - discosSanos;
+
+                lblValSmart.Text = discosPeligro > 0 ? $"{discosPeligro} DISCOS EN PELIGRO" : $"Todos operativos ({discosSanos})";
+                lblValSmart.ForeColor = discosPeligro > 0 ? WinColor.FromArgb(226, 30, 45) : WinColor.FromArgb(34, 197, 94);
+
+                flpDiscos.Controls.Clear();
+                foreach (var disco in _reporte.Discos)
+                {
+                    bool isUsb = disco.Tipo.Contains("USB");
+                    bool isAlert = disco.Estado.Contains("ALERTA") || disco.Estado.Contains("Error");
+
+                    // Contenedor principal del disco
+                    Panel pnlDisco = new Panel
+                    {
+                        Width = flpDiscos.Width - 25,
+                        Height = 55, // Más alto para que quepan las etiquetas
+                        Margin = new Padding(3, 3, 3, 6),
+                        BackColor = WinColor.White
+                    };
+
+                    // Dibujar una línea sutil debajo de cada disco para separarlos
+                    pnlDisco.Paint += (s, e) => { e.Graphics.DrawLine(Pens.Gainsboro, 0, pnlDisco.Height - 1, pnlDisco.Width, pnlDisco.Height - 1); };
+
+                    // Nombre del disco
+                    Label lblNombre = new Label
+                    {
+                        Text = $"{(isUsb ? "🔌" : "💽")} {disco.Modelo} ({disco.TamanoGB:F0} GB)",
+                        AutoSize = true,
+                        Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                        ForeColor = isAlert ? WinColor.FromArgb(226, 30, 45) : WinColor.FromArgb(17, 35, 108),
+                        Location = new Point(5, 5)
+                    };
+                    pnlDisco.Controls.Add(lblNombre);
+
+                    // --- GENERADOR DE ETIQUETAS (BADGES) ---
+                    int currentX = 25; // Empezamos a dibujar etiquetas con un pequeño margen izquierdo
+
+                    // 1. Etiqueta de Estado
+                    Label lblStatus = CrearBadge(disco.Estado,
+                        isAlert ? WinColor.FromArgb(254, 226, 226) : WinColor.FromArgb(220, 252, 231),
+                        isAlert ? WinColor.FromArgb(220, 38, 38) : WinColor.FromArgb(21, 128, 61),
+                        ref currentX, 28);
+                    pnlDisco.Controls.Add(lblStatus);
+
+                    // 2. Etiqueta de Temperatura
+                    if (disco.Temperatura.HasValue)
+                    {
+                        WinColor bgTemp = disco.Temperatura >= 55 ? WinColor.FromArgb(254, 240, 138) : WinColor.FromArgb(243, 244, 246);
+                        WinColor fgTemp = disco.Temperatura >= 55 ? WinColor.FromArgb(161, 98, 7) : WinColor.FromArgb(75, 85, 99);
+                        Label lblTemp = CrearBadge($"🌡️ {disco.Temperatura}°C", bgTemp, fgTemp, ref currentX, 28);
+                        pnlDisco.Controls.Add(lblTemp);
+                    }
+
+                    // 3. Etiqueta de Horas
+                    if (disco.HorasEncendido.HasValue)
+                    {
+                        Label lblHours = CrearBadge($"⏱️ {disco.HorasEncendido}h", WinColor.FromArgb(243, 244, 246), WinColor.FromArgb(75, 85, 99), ref currentX, 28);
+                        pnlDisco.Controls.Add(lblHours);
+                    }
+
+                    // 4. Etiqueta de Salud
+                    if (disco.TieneDatosSalud)
+                    {
+                        WinColor bgHealth = disco.PorcentajeSalud <= 20 ? WinColor.FromArgb(254, 226, 226) : WinColor.FromArgb(219, 234, 254);
+                        WinColor fgHealth = disco.PorcentajeSalud <= 20 ? WinColor.FromArgb(220, 38, 38) : WinColor.FromArgb(29, 78, 216);
+                        Label lblHealth = CrearBadge($"❤️ {disco.PorcentajeSalud}%", bgHealth, fgHealth, ref currentX, 28);
+                        pnlDisco.Controls.Add(lblHealth);
+                    }
+
+
+                    flpDiscos.Controls.Add(pnlDisco);
+                }
+            }
+        }
+
+        // --- HELPER PARA CREAR ETIQUETAS (BADGES) VISUALES ---
+        private Label CrearBadge(string texto, WinColor fondo, WinColor textoColor, ref int currentX, int y)
+        {
+            Label badge = new Label
+            {
+                Text = texto,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                BackColor = fondo,
+                ForeColor = textoColor,
+                Location = new Point(currentX, y),
+                Padding = new Padding(2) // Margen interno para que no quede pegado el texto
+            };
+
+            // Calculamos el espacio de forma síncrona usando PreferredSize
+            currentX += badge.PreferredSize.Width + 5;
+
+            return badge;
+        }
+
+        // ═════════════════════════════════════════════════════════════
+        // PANEL DF-SERVER Y GESTIÓN DE ALTURA
         // ═════════════════════════════════════════════════════════════
         private void cmbTecnico_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // Ignorar el placeholder "— Seleccione un técnico —"
             if (cmbTecnico.SelectedIndex <= 0) { MostrarPanelDf(false); return; }
 
             bool esDf = cmbTecnico.SelectedItem?.ToString().Contains("DF-Server") == true;
@@ -82,23 +255,23 @@ namespace CopicanariasServerReport
             RecalcularAltura();
         }
 
-        // Fuente de verdad única para todas las alturas del formulario.
-        // Orden visual: log/botones izquierda → panel DF (si aplica) → Generar/Realizar
         private void RecalcularAltura()
         {
+            // Fijamos la altura base para que no dependa del Log
+            int contenidoBottom = 500;
 
-            int contenidoBottom = rtbLog.Bottom; // = 110 + 385 = 495
+            // Leemos el ancho actual que Windows ha decidido para la pantalla,
+            int anchoActual = this.ClientSize.Width;
 
             if (!panelDF.Visible)
             {
                 int yBotones = contenidoBottom + 12;
                 btnReport.Top = yBotones;
                 btnAuto.Top = yBotones;
-                this.ClientSize = new WinSize(800, yBotones + btnReport.Height + 40);
+                this.ClientSize = new WinSize(anchoActual, yBotones + btnReport.Height + 40);
                 return;
             }
 
-            // Altura dinámica del panel DF
             int alturaPanel = 38 + 3 * 32 + 12;
             if (panelCertsDinamico.Visible)
                 alturaPanel += panelCertsDinamico.Height + 14;
@@ -109,7 +282,7 @@ namespace CopicanariasServerReport
             int yBotonesDF = panelDF.Bottom + 8;
             btnReport.Top = yBotonesDF;
             btnAuto.Top = yBotonesDF;
-            this.ClientSize = new WinSize(800, yBotonesDF + btnReport.Height + 40);
+            this.ClientSize = new WinSize(anchoActual, yBotonesDF + btnReport.Height + 40);
         }
 
         private void LimpiarDatos()
@@ -122,7 +295,6 @@ namespace CopicanariasServerReport
             RebuildCertificadoFields(0);
         }
 
-        // ── Checkbox Digitalización ──────────────────────────────────
         private void chkDigitalizacion_CheckedChanged(object sender, EventArgs e)
         {
             if (!chkDigitalizacion.Checked) return;
@@ -142,7 +314,6 @@ namespace CopicanariasServerReport
             }
         }
 
-        // ── Checkbox Firmas ──────────────────────────────────────────
         private void chkFirmas_CheckedChanged(object sender, EventArgs e)
         {
             bool activo = chkFirmas.Checked;
@@ -151,7 +322,6 @@ namespace CopicanariasServerReport
             if (!activo) numFirmas.Value = 0;
         }
 
-        // ── Checkbox Certificados ────────────────────────────────────
         private void chkCertificados_CheckedChanged(object sender, EventArgs e)
         {
             bool activo = chkCertificados.Checked;
@@ -162,14 +332,12 @@ namespace CopicanariasServerReport
             RebuildCertificadoFields(activo ? (int)numCertificados.Value : 0);
         }
 
-        // ── Cambio en el número de certificados ──────────────────────
         private void numCertificados_ValueChanged(object sender, EventArgs e)
         {
             if (chkCertificados.Checked)
                 RebuildCertificadoFields((int)numCertificados.Value);
         }
 
-        // ── Genera dinámicamente las filas de certificados ───────────
         private void RebuildCertificadoFields(int cantidad)
         {
             panelCertsDinamico.Controls.Clear();
@@ -186,7 +354,6 @@ namespace CopicanariasServerReport
             int totalH = cantidad * rowH + 8;
             panelCertsDinamico.Height = Math.Min(Math.Max(totalH, 44), maxH);
 
-            // Primero ajustar el tamaño del panel, luego recalcular el formulario
             RecalcularAltura();
 
             for (int i = 0; i < cantidad; i++)
@@ -197,7 +364,7 @@ namespace CopicanariasServerReport
                 {
                     Text = $"Certificado {i + 1}:",
                     Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                    ForeColor = WinColor.FromArgb(28, 60, 160),
+                    ForeColor = WinColor.FromArgb(17, 35, 108),
                     Location = new Point(6, y + 6),
                     Size = new WinSize(100, 18),
                     AutoSize = false
@@ -236,7 +403,6 @@ namespace CopicanariasServerReport
             }
         }
 
-        // ── Lee los campos DF del panel y los guarda en _reporte ─────
         private void LeerDatosDF()
         {
             _reporte.EsTecnicoDf = panelDF.Visible;
@@ -264,15 +430,12 @@ namespace CopicanariasServerReport
             }
         }
 
-        // ── Validaciones DF antes de generar el PDF ──────────────────
-        // Devuelve true si se puede continuar, false si se cancela.
         private bool ValidarCamposDf()
         {
             if (!_reporte.EsTecnicoDf) return true;
 
             var df = _reporte.DfServer;
 
-            // Validar cada certificado caducado o próximo a caducar
             foreach (var cert in df.Certificados)
             {
                 if (!cert.ProximoACaducar) continue;
@@ -306,7 +469,6 @@ namespace CopicanariasServerReport
                 }
             }
 
-            // Validar firmas de DF-Signature
             if (df.TieneFirmas && df.FirmasRestantes <= 100)
             {
                 var resp = MessageBox.Show(
@@ -332,7 +494,6 @@ namespace CopicanariasServerReport
         // ═════════════════════════════════════════════════════════════
         private void Log(string texto)
         {
-            // ── Validación de subprocesos cruzados en la puerta de entrada ──
             if (rtbLog.InvokeRequired)
             {
                 rtbLog.Invoke(new Action(() => Log(texto)));
@@ -343,54 +504,53 @@ namespace CopicanariasServerReport
             string linea = texto.TrimEnd('\n', '\r');
 
             if (linea.Contains("✅"))
-            { Escribir(texto, ClrOk, linea.TrimStart().StartsWith(">>>"), 9.5f); return; }
+            { Escribir(texto, ClrOk, linea.TrimStart().StartsWith(">>>"), 10f); return; }
 
             if (linea.Contains("⚠️") || linea.Contains("🔁"))
-            { Escribir(texto, ClrAviso, linea.TrimStart().StartsWith(">>>"), 9.5f); return; }
+            { Escribir(texto, ClrAviso, linea.TrimStart().StartsWith(">>>"), 10f); return; }
 
             if (linea.Contains("⚡"))
-            { Escribir(texto, WinColor.FromArgb(100, 30, 180), true, 9.5f); return; }
+            { Escribir(texto, WinColor.FromArgb(197, 134, 192), true, 10f); return; }
 
-            if (linea.Contains("sin acceso") ||
-                linea.Contains("No se pudo") ||
-
-              linea.Contains("ALERTA"))
-            { Escribir(texto, ClrError, false, 9.5f); return; }
+            if (linea.Contains("sin acceso") || linea.Contains("No se pudo") || linea.Contains("ALERTA"))
+            { Escribir(texto, ClrError, false, 10f); return; }
 
             if (linea.TrimStart().StartsWith(">>>"))
-            { Escribir(texto, ClrSeccion, true, 9.5f); return; }
+            { Escribir(texto, ClrSeccion, true, 10f); return; }
 
             if (linea.TrimStart().StartsWith("·") || linea.StartsWith("    ·"))
-            { Escribir(texto, ClrDetalle, false, 9f); return; }
+            { Escribir(texto, ClrDetalle, false, 9.5f); return; }
 
             if (linea.StartsWith("      ") || linea.TrimStart().StartsWith("Código"))
-            { Escribir(texto, ClrSubdetalle, false, 8.5f); return; }
+            { Escribir(texto, ClrSubdetalle, false, 9f); return; }
 
-            Escribir(texto, ClrTexto, false, 9.5f);
+            Escribir(texto, ClrTexto, false, 10f);
         }
 
         private void LogBanner(string titulo, WinColor fondo, WinColor texto)
         {
             rtbLog.SuspendLayout();
-            Escribir("\n", ClrTexto, false, 9.5f);
+            Escribir("\n", ClrTexto, false, 10f);
             string contenido = $"  {titulo}  ".PadRight(64);
             rtbLog.SelectionStart = rtbLog.TextLength;
             rtbLog.SelectionLength = 0;
-            rtbLog.SelectionBackColor = fondo;
-            rtbLog.SelectionColor = texto;
-            rtbLog.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Bold);
+
+            WinColor bannerFondoDark = WinColor.FromArgb(fondo.R / 2, fondo.G / 2, fondo.B / 2);
+            rtbLog.SelectionBackColor = bannerFondoDark;
+
+            rtbLog.SelectionColor = WinColor.White;
+            rtbLog.SelectionFont = new Font("Consolas", 10.5f, FontStyle.Bold);
             rtbLog.AppendText(contenido + "\n");
             rtbLog.SelectionBackColor = ClrFondo;
             rtbLog.SelectionColor = ClrTexto;
             rtbLog.SelectionFont = rtbLog.Font;
-            Escribir("\n", ClrTexto, false, 9.5f);
+            Escribir("\n", ClrTexto, false, 10f);
             rtbLog.ResumeLayout();
             rtbLog.ScrollToCaret();
         }
 
         private void Escribir(string texto, WinColor color, bool bold, float size)
         {
-            // ── Validación de subprocesos cruzados (Thread-Safe) ──
             if (rtbLog.InvokeRequired)
             {
                 rtbLog.Invoke(new Action(() => Escribir(texto, color, bold, size)));
@@ -402,8 +562,7 @@ namespace CopicanariasServerReport
             rtbLog.SelectionLength = 0;
             rtbLog.SelectionBackColor = ClrFondo;
             rtbLog.SelectionColor = color;
-            rtbLog.SelectionFont = new Font("Segoe UI", size,
-                bold ? FontStyle.Bold : FontStyle.Regular);
+            rtbLog.SelectionFont = new Font("Consolas", size, bold ? FontStyle.Bold : FontStyle.Regular);
             rtbLog.AppendText(texto);
             rtbLog.SelectionColor = ClrTexto;
             rtbLog.SelectionFont = rtbLog.Font;
@@ -411,7 +570,6 @@ namespace CopicanariasServerReport
             rtbLog.ScrollToCaret();
         }
 
-        // ── Habilitar / deshabilitar botones ─────────────────────────
         private void SetBotonesHabilitados(bool habilitado)
         {
             btnCleanTemp.Enabled = habilitado;
@@ -422,13 +580,12 @@ namespace CopicanariasServerReport
             btnDeviceManager.Enabled = habilitado;
             btnReport.Enabled = habilitado;
             btnAuto.Enabled = habilitado;
-            // Los controles DF solo se activan cuando no hay operación en curso
             panelDF.Enabled = habilitado;
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // ESCANEO AUTOMÁTICO AL ARRANCAR
-        // ─────────────────────────────────────────────────────────────
+        // ═════════════════════════════════════════════════════════════
+        // PROCESOS DE ESCANEO Y MANTENIMIENTO
+        // ═════════════════════════════════════════════════════════════
         private async Task EscaneoInicialAsync()
         {
             SetBotonesHabilitados(false);
@@ -457,15 +614,15 @@ namespace CopicanariasServerReport
                 LogBanner("✅   Sistema actualizado",
                     WinColor.FromArgb(20, 120, 55), WinColor.White);
 
+            // --- AÑADE ESTAS DOS LÍNEAS AQUÍ ---
+            _reporte.UpdatesEjecutado = true;
+            _reporte.DriversEjecutado = true;
+            // ------------------------------------
+
+            ActualizarDashboard(); // <-- Ahora sí refrescará los recuadros visuales al arrancar
             SetBotonesHabilitados(true);
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // EVENTOS DE BOTONES
-        // ─────────────────────────────────────────────────────────────
-
-        // Devuelve true si hay un técnico real seleccionado.
-        // Si no, muestra un aviso y devuelve false.
         private bool TecnicoSeleccionado()
         {
             if (cmbTecnico.SelectedIndex > 0) return true;
@@ -530,7 +687,7 @@ namespace CopicanariasServerReport
 
             await ProcesoSmart();
             await ProcesoLimpieza();
-            await ProcesoUpdates(); 
+            await ProcesoUpdates();
             await ProcesoDrivers();
             await ProcesoPDF();
 
@@ -540,9 +697,6 @@ namespace CopicanariasServerReport
             SetBotonesHabilitados(true);
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // 1. LIMPIEZA
-        // ─────────────────────────────────────────────────────────────
         private async Task ProcesoLimpieza()
         {
             LogBanner("LIMPIEZA DE ARCHIVOS TEMPORALES",
@@ -576,11 +730,10 @@ namespace CopicanariasServerReport
             _reporte.BytesLiberados = bytesLiberados;
             _reporte.LimpiezaEjecutada = true;
             Log($">>> ✅ Limpieza completada: {archivosBorrados} archivos | {bytesLiberados / 1048576.0:F2} MB liberados\n");
+
+            ActualizarDashboard(); 
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // 2. S.M.A.R.T.
-        // ─────────────────────────────────────────────────────────────
         private async Task ProcesoSmart()
         {
             LogBanner("DIAGNÓSTICO S.M.A.R.T. DE DISCOS",
@@ -589,21 +742,19 @@ namespace CopicanariasServerReport
             _reporte.Discos.Clear();
             var discos = await SmartService.ObtenerDiscosAsync(Log);
             _reporte.Discos.AddRange(discos);
+
+            ActualizarDashboard(); 
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // 3. WINDOWS UPDATE
-        // ─────────────────────────────────────────────────────────────
         private async Task ProcesoUpdates()
         {
             LogBanner("ANÁLISIS DE WINDOWS UPDATE",
                 WinColor.FromArgb(50, 60, 100), WinColor.White);
             await UpdateService.AnalizarAsync(_reporte, Log);
+
+            ActualizarDashboard(); 
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // 4. DRIVERS
-        // ─────────────────────────────────────────────────────────────
         private async Task ProcesoDrivers()
         {
             LogBanner("ANÁLISIS DE CONTROLADORES",
@@ -612,11 +763,12 @@ namespace CopicanariasServerReport
             _reporte.Drivers.Clear();
             var drivers = await DriverService.EscanearAsync(Log);
             _reporte.Drivers.AddRange(drivers);
+
+            _reporte.DriversEjecutado = true;
+
+            ActualizarDashboard();
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // 5. GENERAR PDF
-        // ─────────────────────────────────────────────────────────────
         private async Task ProcesoPDF()
         {
             LogBanner("PREPARANDO INFORME PDF",
@@ -625,7 +777,6 @@ namespace CopicanariasServerReport
             if (cmbTecnico?.SelectedItem != null)
                 _reporte.TecnicoResponsable = cmbTecnico.SelectedItem.ToString();
 
-            // Leer campos DF y validar antes de continuar
             LeerDatosDF();
             if (!ValidarCamposDf()) return;
 
@@ -652,7 +803,6 @@ namespace CopicanariasServerReport
             string rutaArchivo = sfd.FileName;
             try
             {
-                // (cabecera del informe)
                 byte[] logoBytes;
                 using (var bmp = Properties.Resources.copicanariasicon)
                 using (var ms = new MemoryStream())
@@ -661,7 +811,6 @@ namespace CopicanariasServerReport
                     logoBytes = ms.ToArray();
                 }
 
-                // (cabecera sección 9, solo si el técnico es DF)
                 byte[] dfLogoBytes = null;
                 if (_reporte.EsTecnicoDf)
                 {
@@ -690,7 +839,12 @@ namespace CopicanariasServerReport
             }
         }
 
-        private void lblTituloCabecera_Click(object sender, EventArgs e)
+        private void lblTitSmart_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblValUpd_Click(object sender, EventArgs e)
         {
 
         }

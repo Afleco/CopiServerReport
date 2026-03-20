@@ -321,7 +321,7 @@ namespace CopicanariasServerReport.Pdf
 
                                 foreach (var d in r.Discos)
                                 {
-                                    var cSmart = d.Estado.Contains("OKs") ? Colors.Green.Darken2 : Colors.Red.Darken2;
+                                    var cSmart = d.Estado.Contains("Operativo") ? Colors.Green.Darken2 : Colors.Red.Darken2;
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Modelo).FontSize(7.5f);
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Tipo).FontSize(7.5f);
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"{d.TamanoGB:F0} GB").FontSize(7.5f);

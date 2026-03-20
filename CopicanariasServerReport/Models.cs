@@ -94,6 +94,8 @@ namespace CopicanariasServerReport
         public long BytesLiberados { get; set; } = 0;
         public bool LimpiezaEjecutada { get; set; } = false;
 
+        public bool DriversEjecutado { get; set; }
+
         public List<DiscoInfo> Discos { get; set; } = new();
         public List<DiscoLogicoInfo> DiscosLogicos { get; set; } = new();
 
