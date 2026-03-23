@@ -299,11 +299,11 @@
             // lblDfTitulo
             // 
             lblDfTitulo.AutoSize = true;
-            lblDfTitulo.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lblDfTitulo.Font = new Font("Segoe UI", 11.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblDfTitulo.ForeColor = Color.FromArgb(17, 35, 108);
             lblDfTitulo.Location = new Point(10, 8);
             lblDfTitulo.Name = "lblDfTitulo";
-            lblDfTitulo.Size = new Size(156, 19);
+            lblDfTitulo.Size = new Size(161, 20);
             lblDfTitulo.TabIndex = 1;
             lblDfTitulo.Text = "🔷 Sección DF-Server";
             // 
@@ -318,10 +318,10 @@
             // chkDigitalizacion
             // 
             chkDigitalizacion.AutoSize = true;
-            chkDigitalizacion.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            chkDigitalizacion.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             chkDigitalizacion.Location = new Point(10, 42);
             chkDigitalizacion.Name = "chkDigitalizacion";
-            chkDigitalizacion.Size = new Size(214, 21);
+            chkDigitalizacion.Size = new Size(246, 24);
             chkDigitalizacion.TabIndex = 3;
             chkDigitalizacion.Text = "¿Tiene digitalización certificada?";
             chkDigitalizacion.CheckedChanged += chkDigitalizacion_CheckedChanged;
@@ -329,10 +329,10 @@
             // chkFirmas
             // 
             chkFirmas.AutoSize = true;
-            chkFirmas.Font = new Font("Segoe UI", 9.5F);
+            chkFirmas.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             chkFirmas.Location = new Point(10, 74);
             chkFirmas.Name = "chkFirmas";
-            chkFirmas.Size = new Size(196, 21);
+            chkFirmas.Size = new Size(221, 24);
             chkFirmas.TabIndex = 4;
             chkFirmas.Text = "Tiene firmas de DF-Signature";
             chkFirmas.CheckedChanged += chkFirmas_CheckedChanged;
@@ -341,31 +341,31 @@
             // 
             lblFirmasRestantes.AutoSize = true;
             lblFirmasRestantes.Enabled = false;
-            lblFirmasRestantes.Font = new Font("Segoe UI", 9F);
+            lblFirmasRestantes.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblFirmasRestantes.ForeColor = Color.DimGray;
             lblFirmasRestantes.Location = new Point(242, 77);
             lblFirmasRestantes.Name = "lblFirmasRestantes";
-            lblFirmasRestantes.Size = new Size(95, 15);
+            lblFirmasRestantes.Size = new Size(106, 17);
             lblFirmasRestantes.TabIndex = 5;
             lblFirmasRestantes.Text = "Firmas restantes:";
             // 
             // numFirmas
             // 
             numFirmas.Enabled = false;
-            numFirmas.Font = new Font("Segoe UI", 9.5F);
+            numFirmas.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             numFirmas.Location = new Point(352, 74);
             numFirmas.Maximum = new decimal(new int[] { 99999, 0, 0, 0 });
             numFirmas.Name = "numFirmas";
-            numFirmas.Size = new Size(90, 24);
+            numFirmas.Size = new Size(90, 27);
             numFirmas.TabIndex = 6;
             // 
             // chkCertificados
             // 
             chkCertificados.AutoSize = true;
-            chkCertificados.Font = new Font("Segoe UI", 9.5F);
+            chkCertificados.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             chkCertificados.Location = new Point(10, 108);
             chkCertificados.Name = "chkCertificados";
-            chkCertificados.Size = new Size(182, 21);
+            chkCertificados.Size = new Size(206, 24);
             chkCertificados.TabIndex = 7;
             chkCertificados.Text = "Tiene certificados digitales";
             chkCertificados.CheckedChanged += chkCertificados_CheckedChanged;
@@ -374,23 +374,23 @@
             // 
             lblNumCerts.AutoSize = true;
             lblNumCerts.Enabled = false;
-            lblNumCerts.Font = new Font("Segoe UI", 9F);
+            lblNumCerts.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblNumCerts.ForeColor = Color.DimGray;
             lblNumCerts.Location = new Point(242, 111);
             lblNumCerts.Name = "lblNumCerts";
-            lblNumCerts.Size = new Size(104, 15);
+            lblNumCerts.Size = new Size(117, 17);
             lblNumCerts.TabIndex = 8;
             lblNumCerts.Text = "Nº de certificados:";
             // 
             // numCertificados
             // 
             numCertificados.Enabled = false;
-            numCertificados.Font = new Font("Segoe UI", 9.5F);
-            numCertificados.Location = new Point(352, 108);
+            numCertificados.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            numCertificados.Location = new Point(365, 108);
             numCertificados.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
             numCertificados.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numCertificados.Name = "numCertificados";
-            numCertificados.Size = new Size(60, 24);
+            numCertificados.Size = new Size(60, 27);
             numCertificados.TabIndex = 9;
             numCertificados.Value = new decimal(new int[] { 1, 0, 0, 0 });
             numCertificados.ValueChanged += numCertificados_ValueChanged;
