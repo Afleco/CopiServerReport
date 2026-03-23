@@ -154,7 +154,7 @@ namespace CopicanariasServerReport.Services
         {
             string[] keywords = { "antivirus", "endpoint", "security", "antimalware",
                                   "panda", "eset", "kaspersky", "sophos", "bitdefender",
-                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike" };
+                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike", "malwarebytes" };
             string[] uninstallPaths = {
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
                 @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
@@ -386,7 +386,7 @@ namespace CopicanariasServerReport.Services
             catch { }
         }
 
-        // ── Java: detección local + consulta online (Adoptium API) ───
+        // ── Java: detección local + consulta online de la última versión LTS (Adoptium API) ───
         public static async Task RecopilarJavaAsync(DatosServidor reporte, Action<string> log, HttpClient http)
         {
             reporte.VersionJava = "No instalado / No detectado";

@@ -439,7 +439,7 @@ namespace CopicanariasServerReport.Pdf
                                 }
                                 else
                                 {
-                                    Fila(t, "Firmas DF-Signature:", "No tiene el módulo");
+                                    Fila(t, "Firmas DF-Signature:", "Módulo no contratado");
                                 }
                             });
 
