@@ -134,7 +134,7 @@ namespace CopicanariasServerReport.Services
                         }
 
                         // Inferencia extra: Si el hardware dice "OK" pero la salud es bajísima
-                        if (!fallaSmartInminente && disco.TieneDatosSalud && disco.PorcentajeSalud <= 15)
+                        if (!fallaSmartInminente && disco.TieneDatosSalud && disco.PorcentajeSalud <= 20)
                         {
                             disco.Estado = "ALERTA (Desgaste Crítico)";
                         }

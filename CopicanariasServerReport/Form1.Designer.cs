@@ -414,7 +414,7 @@
             pnlCardUpd.Controls.Add(lblValUpd);
             pnlCardUpd.Location = new Point(350, 115);
             pnlCardUpd.Name = "pnlCardUpd";
-            pnlCardUpd.Size = new Size(215, 95);
+            pnlCardUpd.Size = new Size(215, 99);
             pnlCardUpd.TabIndex = 0;
             // 
             // lblIconUpd
@@ -457,9 +457,9 @@
             pnlCardDrv.Controls.Add(lblIconDrv);
             pnlCardDrv.Controls.Add(lblTitDrv);
             pnlCardDrv.Controls.Add(lblValDrv);
-            pnlCardDrv.Location = new Point(575, 115);
+            pnlCardDrv.Location = new Point(571, 115);
             pnlCardDrv.Name = "pnlCardDrv";
-            pnlCardDrv.Size = new Size(215, 95);
+            pnlCardDrv.Size = new Size(219, 99);
             pnlCardDrv.TabIndex = 1;
             // 
             // lblIconDrv
@@ -503,7 +503,7 @@
             pnlCardTmp.Controls.Add(lblValTmp);
             pnlCardTmp.Location = new Point(350, 220);
             pnlCardTmp.Name = "pnlCardTmp";
-            pnlCardTmp.Size = new Size(440, 70);
+            pnlCardTmp.Size = new Size(440, 79);
             pnlCardTmp.TabIndex = 2;
             // 
             // lblIconTmp
@@ -546,9 +546,9 @@
             pnlCardSmart.Controls.Add(lblTitSmart);
             pnlCardSmart.Controls.Add(lblValSmart);
             pnlCardSmart.Controls.Add(flpDiscos);
-            pnlCardSmart.Location = new Point(350, 300);
+            pnlCardSmart.Location = new Point(350, 305);
             pnlCardSmart.Name = "pnlCardSmart";
-            pnlCardSmart.Size = new Size(440, 195);
+            pnlCardSmart.Size = new Size(440, 190);
             pnlCardSmart.TabIndex = 3;
             // 
             // lblIconSmart
