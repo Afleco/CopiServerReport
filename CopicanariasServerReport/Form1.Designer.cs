@@ -87,7 +87,7 @@
             // 
             btnToggleLog.BackColor = Color.FromArgb(100, 100, 100);
             btnToggleLog.FlatStyle = FlatStyle.Flat;
-            btnToggleLog.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnToggleLog.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnToggleLog.ForeColor = Color.White;
             btnToggleLog.Location = new Point(640, 30);
             btnToggleLog.Name = "btnToggleLog";
@@ -100,11 +100,11 @@
             // lblTituloCabecera
             // 
             lblTituloCabecera.AutoSize = true;
-            lblTituloCabecera.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
+            lblTituloCabecera.Font = new Font("Segoe UI", 24F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblTituloCabecera.ForeColor = Color.FromArgb(17, 35, 108);
-            lblTituloCabecera.Location = new Point(265, 28);
+            lblTituloCabecera.Location = new Point(256, 20);
             lblTituloCabecera.Name = "lblTituloCabecera";
-            lblTituloCabecera.Size = new Size(218, 30);
+            lblTituloCabecera.Size = new Size(314, 45);
             lblTituloCabecera.TabIndex = 1;
             lblTituloCabecera.Text = "Panel de Preventiva";
             // 
@@ -121,21 +121,21 @@
             // lblTecnico
             // 
             lblTecnico.AutoSize = true;
-            lblTecnico.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblTecnico.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblTecnico.ForeColor = Color.FromArgb(64, 64, 64);
             lblTecnico.Location = new Point(30, 115);
             lblTecnico.Name = "lblTecnico";
-            lblTecnico.Size = new Size(124, 15);
+            lblTecnico.Size = new Size(139, 17);
             lblTecnico.TabIndex = 9;
             lblTecnico.Text = "Técnico Responsable:";
             // 
             // cmbTecnico
             // 
             cmbTecnico.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbTecnico.Font = new Font("Segoe UI", 10F);
+            cmbTecnico.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             cmbTecnico.Location = new Point(30, 135);
             cmbTecnico.Name = "cmbTecnico";
-            cmbTecnico.Size = new Size(300, 25);
+            cmbTecnico.Size = new Size(300, 28);
             cmbTecnico.TabIndex = 8;
             cmbTecnico.SelectedIndexChanged += cmbTecnico_SelectedIndexChanged;
             // 
@@ -143,7 +143,7 @@
             // 
             btnCleanTemp.BackColor = Color.FromArgb(17, 35, 108);
             btnCleanTemp.FlatStyle = FlatStyle.Flat;
-            btnCleanTemp.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnCleanTemp.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnCleanTemp.ForeColor = Color.White;
             btnCleanTemp.Location = new Point(30, 240);
             btnCleanTemp.Name = "btnCleanTemp";
@@ -157,7 +157,7 @@
             // 
             btnSmart.BackColor = Color.FromArgb(17, 35, 108);
             btnSmart.FlatStyle = FlatStyle.Flat;
-            btnSmart.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnSmart.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnSmart.ForeColor = Color.White;
             btnSmart.Location = new Point(30, 180);
             btnSmart.Name = "btnSmart";
@@ -171,7 +171,7 @@
             // 
             btnUpdate.BackColor = Color.FromArgb(17, 35, 108);
             btnUpdate.FlatStyle = FlatStyle.Flat;
-            btnUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnUpdate.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnUpdate.ForeColor = Color.White;
             btnUpdate.Location = new Point(30, 305);
             btnUpdate.Name = "btnUpdate";
@@ -200,7 +200,7 @@
             // 
             btnDrivers.BackColor = Color.FromArgb(17, 35, 108);
             btnDrivers.FlatStyle = FlatStyle.Flat;
-            btnDrivers.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnDrivers.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnDrivers.ForeColor = Color.White;
             btnDrivers.Location = new Point(30, 405);
             btnDrivers.Name = "btnDrivers";
@@ -229,7 +229,7 @@
             // 
             btnReport.BackColor = Color.FromArgb(34, 197, 94);
             btnReport.FlatStyle = FlatStyle.Flat;
-            btnReport.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnReport.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnReport.ForeColor = Color.White;
             btnReport.Location = new Point(30, 510);
             btnReport.Name = "btnReport";
@@ -243,7 +243,7 @@
             // 
             btnAuto.BackColor = Color.FromArgb(226, 30, 45);
             btnAuto.FlatStyle = FlatStyle.Flat;
-            btnAuto.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnAuto.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnAuto.ForeColor = Color.White;
             btnAuto.Location = new Point(350, 510);
             btnAuto.Name = "btnAuto";
@@ -318,7 +318,7 @@
             // chkDigitalizacion
             // 
             chkDigitalizacion.AutoSize = true;
-            chkDigitalizacion.Font = new Font("Segoe UI", 9.5F);
+            chkDigitalizacion.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             chkDigitalizacion.Location = new Point(10, 42);
             chkDigitalizacion.Name = "chkDigitalizacion";
             chkDigitalizacion.Size = new Size(214, 21);
@@ -431,11 +431,11 @@
             // lblTitUpd
             // 
             lblTitUpd.AutoSize = true;
-            lblTitUpd.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblTitUpd.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblTitUpd.ForeColor = Color.Gray;
             lblTitUpd.Location = new Point(80, 20);
             lblTitUpd.Name = "lblTitUpd";
-            lblTitUpd.Size = new Size(102, 15);
+            lblTitUpd.Size = new Size(113, 17);
             lblTitUpd.TabIndex = 1;
             lblTitUpd.Text = "Windows Update";
             // 
@@ -476,11 +476,11 @@
             // lblTitDrv
             // 
             lblTitDrv.AutoSize = true;
-            lblTitDrv.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblTitDrv.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblTitDrv.ForeColor = Color.Gray;
             lblTitDrv.Location = new Point(60, 20);
             lblTitDrv.Name = "lblTitDrv";
-            lblTitDrv.Size = new Size(85, 15);
+            lblTitDrv.Size = new Size(95, 17);
             lblTitDrv.TabIndex = 1;
             lblTitDrv.Text = "Controladores";
             // 
@@ -520,11 +520,11 @@
             // lblTitTmp
             // 
             lblTitTmp.AutoSize = true;
-            lblTitTmp.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblTitTmp.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblTitTmp.ForeColor = Color.Gray;
-            lblTitTmp.Location = new Point(80, 20);
+            lblTitTmp.Location = new Point(80, 18);
             lblTitTmp.Name = "lblTitTmp";
-            lblTitTmp.Size = new Size(140, 15);
+            lblTitTmp.Size = new Size(157, 17);
             lblTitTmp.TabIndex = 1;
             lblTitTmp.Text = "Limpieza de Temporales";
             // 
@@ -565,11 +565,11 @@
             // lblTitSmart
             // 
             lblTitSmart.AutoSize = true;
-            lblTitSmart.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblTitSmart.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblTitSmart.ForeColor = Color.Gray;
-            lblTitSmart.Location = new Point(80, 19);
+            lblTitSmart.Location = new Point(80, 13);
             lblTitSmart.Name = "lblTitSmart";
-            lblTitSmart.Size = new Size(164, 15);
+            lblTitSmart.Size = new Size(189, 17);
             lblTitSmart.TabIndex = 1;
             lblTitSmart.Text = "Estado de Discos (S.M.A.R.T.)";
             lblTitSmart.Click += lblTitSmart_Click;
