@@ -1,6 +1,7 @@
 ﻿using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System.IO;
 
 namespace CopicanariasServerReport.Pdf
 {
@@ -10,6 +11,9 @@ namespace CopicanariasServerReport.Pdf
         // Método síncrono: debe llamarse desde Task.Run para no bloquear la UI.
         public static void Generar(string ruta, DatosServidor r, byte[] logoBytes, byte[] dfLogoBytes = null)
         {
+            // PROCESAMOS EL LOGO PARA HACERLO SEMITRANSPARENTE (6% de opacidad)
+            byte[] watermarkBytes = HacerImagenTransparente(logoBytes, 0.06f);
+
             Document.Create(container =>
             {
                 container.Page(page =>
@@ -17,6 +21,14 @@ namespace CopicanariasServerReport.Pdf
                     page.Size(PageSizes.A4);
                     page.Margin(1.5f, Unit.Centimetre);
                     page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Segoe UI"));
+
+                    // ══ MARCA DE AGUA (FONDO SEMITRANSPARENTE PROCESADO) ══
+                    page.Background()
+                        .AlignCenter()
+                        .AlignMiddle()
+                        .Container()
+                        .Width(14, Unit.Centimetre)
+                        .Image(watermarkBytes); // Le pasamos la imagen ya procesada
 
                     // ══ CABECERA ══════════════════════════════════════════
                     page.Header().Column(hdr =>
@@ -387,10 +399,10 @@ namespace CopicanariasServerReport.Pdf
 
                             foreach (var d in r.DiscosLogicos)
                             {
-                                bool critico = d.PorcentajeLibre < 20;
-                                var cDisco = critico ? Colors.Red.Darken2 : Colors.Black;
                                 int bloques = Math.Clamp((int)((100 - d.PorcentajeLibre) / 10), 0, 10);
                                 string barra = new string('█', bloques) + new string('░', 10 - bloques);
+                                bool critico = d.PorcentajeLibre < 20;
+                                var cDisco = critico ? Colors.Red.Darken2 : Colors.Black;
 
                                 t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
                                     .Text(d.Letra).SemiBold().FontSize(8);
@@ -542,6 +554,37 @@ namespace CopicanariasServerReport.Pdf
         {
             t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(etiqueta).SemiBold();
             t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(valor).FontColor(color).SemiBold();
+        }
+
+        // ── Helper para Marca de Agua ─────────────────────────────────
+
+        // ── Helper para Marca de Agua ─────────────────────────────────
+
+        private static byte[] HacerImagenTransparente(byte[] imageBytes, float opacidad)
+        {
+            using (var msIn = new MemoryStream(imageBytes))
+            using (var img = System.Drawing.Image.FromStream(msIn))
+            using (var bmp = new System.Drawing.Bitmap(img.Width, img.Height))
+            {
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    // Usamos las rutas completas de System.Drawing.Imaging
+                    var matrix = new System.Drawing.Imaging.ColorMatrix { Matrix33 = opacidad };
+                    var attributes = new System.Drawing.Imaging.ImageAttributes();
+                    attributes.SetColorMatrix(matrix, System.Drawing.Imaging.ColorMatrixFlag.Default, System.Drawing.Imaging.ColorAdjustType.Bitmap);
+
+                    // Dibujamos especificando que usamos el Rectangle de Windows
+                    g.DrawImage(img, new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height),
+                        0, 0, img.Width, img.Height, System.Drawing.GraphicsUnit.Pixel, attributes);
+                }
+
+                using (var msOut = new MemoryStream())
+                {
+                    // Guardamos usando el ImageFormat de Windows
+                    bmp.Save(msOut, System.Drawing.Imaging.ImageFormat.Png);
+                    return msOut.ToArray();
+                }
+            }
         }
     }
 }

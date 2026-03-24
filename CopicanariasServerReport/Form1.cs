@@ -453,17 +453,18 @@ namespace CopicanariasServerReport
                 };
                 currentX += txtNombre.Width + 15;
 
-                // Evento en tiempo real para validar si está vacío
+                // Evento en tiempo real para validar si está vacío o es muy corto
                 txtNombre.TextChanged += (s, ev) =>
                 {
-                    if (string.IsNullOrWhiteSpace(txtNombre.Text))
+                    // Comprobamos si está vacío o si, quitando espacios, tiene menos de 10 caracteres
+                    if (string.IsNullOrWhiteSpace(txtNombre.Text) || txtNombre.Text.Trim().Length < 10)
                     {
-                        // Si lo borran todo, vuelve a ponerse rojo suave
+                        // Si no cumple, se queda con el fondo de alerta rojizo
                         txtNombre.BackColor = WinColor.FromArgb(255, 235, 235);
                     }
                     else
                     {
-                        // Si hay al menos un carácter, se pinta blanco
+                        // Si ya tiene 10 caracteres o más, se pone blanco
                         txtNombre.BackColor = WinColor.White;
                     }
                 };
@@ -569,50 +570,54 @@ namespace CopicanariasServerReport
 
             var df = _reporte.DfServer;
 
+            int certIndex = 1; // Para identificar el número de certificado en el aviso
             foreach (var cert in df.Certificados)
             {
-                // 1. Obligar a poner un nombre
-                if (string.IsNullOrWhiteSpace(cert.Nombre))
+                // 1. Validar nombre (no vacío y mínimo 10 caracteres)
+                if (string.IsNullOrWhiteSpace(cert.Nombre) || cert.Nombre.Length < 10)
                 {
                     MensajeModal.Show(
-                        "Has dejado el nombre de un certificado en blanco.\nPor favor, escribe el nombre o titular para que aparezca en el informe.",
-                        "Nombre de certificado requerido",
+                        $"El nombre del Certificado {certIndex} no tiene una longitud válida (mínimo 10 caracteres).\n\nPor favor, escribe el nombre completo o el titular real.",
+                        "Nombre de certificado inválido",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
 
-                    Log(">>> Informe cancelado: faltan nombres en los certificados.\n");
+                    Log($">>> Informe cancelado: nombre no válido o demasiado corto en el Certificado {certIndex}.\n");
                     return false; // Bloquea la generación del PDF
                 }
 
-                if (!cert.ProximoACaducar) continue;
-
-                int dias = (cert.FechaCaducidad.Date - DateTime.Today).Days;
-                bool caducado = dias < 0;
-
-                string mensaje = caducado
-                    ? $"❌  El certificado \"{cert.Nombre}\" caducó el " +
-                      $"{cert.FechaCaducidad:dd/MM/yyyy} (hace {Math.Abs(dias)} días).\n\n" +
-                      $"¿Se le ha avisado al cliente de que este certificado está caducado?"
-                    : $"⚠️  El certificado \"{cert.Nombre}\" caduca el " +
-                      $"{cert.FechaCaducidad:dd/MM/yyyy} (en {dias} días).\n\n" +
-                      $"¿Se le ha avisado al cliente de que este certificado va a caducar próximamente?";
-
-                string titulo = caducado ? "Certificado caducado" : "Certificado próximo a caducar";
-
-                var resp = MensajeModal.Show(
-                    mensaje, titulo,
-                    MessageBoxButtons.YesNo,
-                    caducado ? MessageBoxIcon.Error : MessageBoxIcon.Warning);
-
-                // ARREGLO DE LA 'X': Si no pulsa "Sí", cancelamos.
-                if (resp != DialogResult.Yes)
+                if (cert.ProximoACaducar)
                 {
-                    string motivo = caducado
-                        ? "el cliente no ha sido avisado del certificado caducado"
-                        : "el cliente no ha sido avisado del certificado próximo a caducar";
-                    Log($">>> Informe cancelado: {motivo}.\n");
-                    return false;
+                    int dias = (cert.FechaCaducidad.Date - DateTime.Today).Days;
+                    bool caducado = dias < 0;
+
+                    string mensaje = caducado
+                        ? $"❌  El certificado \"{cert.Nombre}\" caducó el " +
+                          $"{cert.FechaCaducidad:dd/MM/yyyy} (hace {Math.Abs(dias)} días).\n\n" +
+                          $"¿Se le ha avisado al cliente de que este certificado está caducado?"
+                        : $"⚠️  El certificado \"{cert.Nombre}\" caduca el " +
+                          $"{cert.FechaCaducidad:dd/MM/yyyy} (en {dias} días).\n\n" +
+                          $"¿Se le ha avisado al cliente de que este certificado va a caducar próximamente?";
+
+                    string titulo = caducado ? "Certificado caducado" : "Certificado próximo a caducar";
+
+                    var resp = MensajeModal.Show(
+                        mensaje, titulo,
+                        MessageBoxButtons.YesNo,
+                        caducado ? MessageBoxIcon.Error : MessageBoxIcon.Warning);
+
+                    // ARREGLO DE LA 'X': Si no pulsa "Sí", cancelamos.
+                    if (resp != DialogResult.Yes)
+                    {
+                        string motivo = caducado
+                            ? "el cliente no ha sido avisado del certificado caducado"
+                            : "el cliente no ha sido avisado del certificado próximo a caducar";
+                        Log($">>> Informe cancelado: {motivo}.\n");
+                        return false;
+                    }
                 }
+
+                certIndex++; // Pasamos al siguiente certificado
             }
 
             if (df.TieneFirmas && df.FirmasRestantes <= 100)
