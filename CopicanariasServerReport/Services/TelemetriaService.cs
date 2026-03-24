@@ -2,6 +2,7 @@
 using System.Management;
 using System.Text.Json;
 using Microsoft.Win32;
+using System.Text.RegularExpressions;
 
 namespace CopicanariasServerReport.Services
 {
@@ -11,6 +12,7 @@ namespace CopicanariasServerReport.Services
         public static void RecopilarTelemetria(DatosServidor reporte, Action<string> log = null)
         {
             RecopilarSistemaOperativo(reporte);
+            RecopilarUsuarioActivo(reporte);
             RecopilarRAM(reporte);
             RecopilarDiscosLogicos(reporte);
             RecopilarAntivirus(reporte);
@@ -39,6 +41,32 @@ namespace CopicanariasServerReport.Services
                     }
             }
             catch { reporte.SistemaOperativo = Environment.OSVersion.ToString(); }
+        }
+
+        // ── Usuario de la sesión real (Ignorando permisos de Administrador) ──
+        private static void RecopilarUsuarioActivo(DatosServidor reporte)
+        {
+            try
+            {
+                // Le preguntamos a Windows quién está en la sesión física del monitor
+                using var s = new ManagementObjectSearcher("SELECT UserName FROM Win32_ComputerSystem");
+                foreach (ManagementObject obj in s.Get())
+                    using (obj)
+                    {
+                        string fullUser = obj["UserName"]?.ToString();
+                        if (!string.IsNullOrEmpty(fullUser))
+                        {
+                            // Suele venir como "NOMBREEQUIPO\Alejandro", lo partimos para quedarnos solo con "Alejandro"
+                            var partes = fullUser.Split('\\');
+                            reporte.UsuarioActivo = partes.Length > 1 ? partes[1] : fullUser;
+                            return;
+                        }
+                    }
+            }
+            catch { }
+
+            // Si por algún motivo de seguridad Windows bloquea la consulta, usamos el plan B (mostramos el administrador que ejecuta el programa, aunque no sea el usuario real)
+            reporte.UsuarioActivo = Environment.UserName;
         }
 
         // ── RAM ──────────────────────────────────────────────────────
@@ -386,50 +414,88 @@ namespace CopicanariasServerReport.Services
             catch { }
         }
 
-        // ── Java: detección local + consulta online de la última versión LTS (Adoptium API) ───
+        // ── Java Desktop (JRE 8): detección local + consulta online en java.com ───
         public static async Task RecopilarJavaAsync(DatosServidor reporte, Action<string> log, HttpClient http)
         {
             reporte.VersionJava = "No instalado / No detectado";
             reporte.JavaAlDia = false;
             reporte.JavaVersionOnline = "";
             string versionInstalada = "";
+            int updateLocal = 0;
 
             string[] registryPaths = {
-                @"SOFTWARE\JavaSoft\Java Runtime Environment", @"SOFTWARE\JavaSoft\JDK",
-                @"SOFTWARE\WOW6432Node\JavaSoft\Java Runtime Environment", @"SOFTWARE\WOW6432Node\JavaSoft\JDK"
+                @"SOFTWARE\JavaSoft\Java Runtime Environment",
+                @"SOFTWARE\WOW6432Node\JavaSoft\Java Runtime Environment"
             };
 
+            // 1. Buscamos en el registro las subclaves que tengan el formato "1.8.0_XXX"
             foreach (var keyPath in registryPaths)
             {
                 try
                 {
                     using var key = Registry.LocalMachine.OpenSubKey(keyPath);
                     if (key == null) continue;
-                    var ver = key.GetValue("CurrentVersion")?.ToString();
-                    if (!string.IsNullOrEmpty(ver)) { versionInstalada = ver; reporte.VersionJava = $"Instalado — Versión {ver}"; break; }
+
+                    foreach (string subName in key.GetSubKeyNames())
+                    {
+                        var match = Regex.Match(subName, @"1\.8\.0_(\d+)");
+                        if (match.Success)
+                        {
+                            int updateNum = int.Parse(match.Groups[1].Value);
+                            // Nos quedamos siempre con el Update más alto por si hay restos viejos
+                            if (updateNum > updateLocal)
+                            {
+                                updateLocal = updateNum;
+                                versionInstalada = subName; // Ej: 1.8.0_481
+                            }
+                        }
+                    }
                 }
                 catch { }
             }
 
-            if (string.IsNullOrEmpty(versionInstalada)) { log?.Invoke("    · Java: No detectado en el registro.\n"); return; }
+            if (updateLocal == 0)
+            {
+                log?.Invoke("    · Java: No detectado JRE 8 en el registro.\n");
+                return;
+            }
 
+            reporte.VersionJava = $"Java 8 Update {updateLocal}";
+
+            // 2. Consultar online leyendo directamente la página oficial de Java
             try
             {
-                log?.Invoke("    · Java: Consultando última versión LTS disponible online...\n");
-                string json = await http.GetStringAsync("https://api.adoptium.net/v3/info/available_releases");
-                using var doc = JsonDocument.Parse(json);
-                int ltsOnline = doc.RootElement.GetProperty("most_recent_lts").GetInt32();
-                reporte.JavaVersionOnline = $"Java {ltsOnline} LTS (Fuente: Adoptium)";
+                log?.Invoke("    · Java: Consultando última versión en java.com...\n");
 
-                int majorInstalado = 0;
-                var partes = versionInstalada.Split('.');
-                if (partes[0] == "1" && partes.Length > 1) int.TryParse(partes[1], out majorInstalado);
-                else int.TryParse(partes[0], out majorInstalado);
+                // Descargamos el código fuente de la página de descargas de java.com
+                string html = await http.GetStringAsync("https://www.java.com/es/download/");
 
-                if (majorInstalado >= ltsOnline) { reporte.JavaAlDia = true; reporte.VersionJava += " ✅"; }
-                else { reporte.JavaAlDia = false; reporte.VersionJava += $" ⚠️ (disponible Java {ltsOnline} LTS)"; }
+                // Buscamos el texto literal "Versión 8 Update XXX" o "Version 8 Update XXX"
+                var matchOnline = Regex.Match(html, @"Versi(?:ó|o)n 8 Update (\d+)");
 
-                log?.Invoke($"    · Java instalado: {versionInstalada} | LTS disponible: Java {ltsOnline}\n");
+                if (matchOnline.Success)
+                {
+                    int updateOnline = int.Parse(matchOnline.Groups[1].Value);
+                    reporte.JavaVersionOnline = $"Java 8 Update {updateOnline} (Fuente: java.com)";
+
+                    if (updateLocal >= updateOnline)
+                    {
+                        reporte.JavaAlDia = true;
+                        reporte.VersionJava += " ✅";
+                    }
+                    else
+                    {
+                        reporte.JavaAlDia = false;
+                        reporte.VersionJava += $" ⚠️ (disponible Update {updateOnline})";
+                    }
+
+                    log?.Invoke($"    · Java instalado: Update {updateLocal} | Disponible en web: Update {updateOnline}\n");
+                }
+                else
+                {
+                    reporte.JavaVersionOnline = "No se pudo encontrar la versión en java.com";
+                    log?.Invoke("    · Java: Cambio en el diseño de java.com, no se encontró el Update.\n");
+                }
             }
             catch
             {

@@ -14,6 +14,9 @@ namespace CopicanariasServerReport
 
         private readonly List<(TextBox Nombre, DateTimePicker Fecha)> _certControls = new();
 
+        // ETIQUETA PARA EL AVISO DE FIRMAS
+        private Label _lblAvisoFirmas;
+
         // PALETA DE COLORES
         private static readonly WinColor ClrFondo = WinColor.FromArgb(30, 30, 30);
         private static readonly WinColor ClrTexto = WinColor.FromArgb(212, 212, 212);
@@ -45,6 +48,7 @@ namespace CopicanariasServerReport
             rtbLog.ForeColor = ClrTexto;
             rtbLog.Clear();
 
+            // AQUÍ SE PUEDEN AÑADIR TÉCNICOS A FUTURO, SI EL TÉCNICO ESCOGIDO CONTIENE "(DF-Server)" SE MOSTRARÁ EL PANEL DE DF-SERVER
             cmbTecnico.Items.Add("— Seleccione un técnico —");
             cmbTecnico.Items.Add("Alejandro Martel");
             cmbTecnico.Items.Add("Himar Bautista");
@@ -53,11 +57,43 @@ namespace CopicanariasServerReport
             cmbTecnico.Items.Add("Francisco Muñoz (DF-Server)");
             cmbTecnico.SelectedIndex = 0;
 
+            // --- INICIALIZAMOS LA ETIQUETA DE AVISO DE FIRMAS ---
+            _lblAvisoFirmas = new Label
+            {
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Visible = false // Por defecto oculta
+            };
+            panelDF.Controls.Add(_lblAvisoFirmas);
+            // Escuchamos cuando el usuario cambia el numerito
+            numFirmas.ValueChanged += (s, ev) => ActualizarAvisoFirmas();
+
             AjustarPosicionesDF();
+            AjustarPosicionesDashboard();
 
             await EscaneoInicialAsync();
         }
 
+        private void AjustarPosicionesDashboard()
+        {
+            int margen = 12; // La distancia entre el icono y el texto
+
+            // Tarjeta Windows Update
+            lblTitUpd.Left = lblIconUpd.Right + margen;
+            lblValUpd.Left = lblTitUpd.Left;
+
+            // Tarjeta Controladores
+            lblTitDrv.Left = lblIconDrv.Right + margen;
+            lblValDrv.Left = lblTitDrv.Left;
+
+            // Tarjeta Limpieza
+            lblTitTmp.Left = lblIconTmp.Right + margen;
+            lblValTmp.Left = lblTitTmp.Left;
+
+            // Tarjeta S.M.A.R.T.
+            lblTitSmart.Left = lblIconSmart.Right + margen;
+            lblValSmart.Left = lblTitSmart.Left;
+        }
         private void AjustarPosicionesDF()
         {
             // 1. Acomodamos la fila de Firmas
@@ -72,6 +108,55 @@ namespace CopicanariasServerReport
             int columnaNumeros = Math.Max(lblFirmasRestantes.Right, lblNumCerts.Right) + 10;
             numFirmas.Left = columnaNumeros;
             numCertificados.Left = columnaNumeros;
+
+            // 4. Alineamos la nueva etiqueta de aviso a la derecha del todo
+            if (_lblAvisoFirmas != null)
+            {
+                _lblAvisoFirmas.Left = numFirmas.Right + 15;
+                _lblAvisoFirmas.Top = numFirmas.Top + 2;
+            }
+        }
+
+        private void chkFirmas_CheckedChanged(object sender, EventArgs e)
+        {
+            bool activo = chkFirmas.Checked;
+            lblFirmasRestantes.Enabled = activo;
+            numFirmas.Enabled = activo;
+            if (!activo) numFirmas.Value = 0;
+
+            // Evaluamos el aviso al marcar/desmarcar
+            ActualizarAvisoFirmas();
+        }
+
+        // --- LÓGICA DE AVISO DE FIRMAS ---
+        private void ActualizarAvisoFirmas()
+        {
+            if (_lblAvisoFirmas == null) return;
+
+            // Solo mostramos avisos si el check de firmas está marcado
+            if (chkFirmas.Checked)
+            {
+                if (numFirmas.Value == 0)
+                {
+                    _lblAvisoFirmas.Text = "❌ No quedan firmas";
+                    _lblAvisoFirmas.ForeColor = WinColor.FromArgb(226, 30, 45); // Rojo (Crítico)
+                    _lblAvisoFirmas.Visible = true;
+                }
+                else if (numFirmas.Value <= 100)
+                {
+                    _lblAvisoFirmas.Text = "⚠️ Quedan pocas firmas";
+                    _lblAvisoFirmas.ForeColor = WinColor.FromArgb(220, 100, 0); // Naranja (Aviso)
+                    _lblAvisoFirmas.Visible = true;
+                }
+                else
+                {
+                    _lblAvisoFirmas.Visible = false; // Más de 100 firmas: Todo OK, ocultamos la etiqueta
+                }
+            }
+            else
+            {
+                _lblAvisoFirmas.Visible = false; // Si desmarcan el CheckBox, se oculta
+            }
         }
 
         private void btnToggleLog_Click(object sender, EventArgs e)
@@ -309,15 +394,6 @@ namespace CopicanariasServerReport
                 chkDigitalizacion.CheckedChanged += chkDigitalizacion_CheckedChanged;
             }
         }
-
-        private void chkFirmas_CheckedChanged(object sender, EventArgs e)
-        {
-            bool activo = chkFirmas.Checked;
-            lblFirmasRestantes.Enabled = activo;
-            numFirmas.Enabled = activo;
-            if (!activo) numFirmas.Value = 0;
-        }
-
         private void chkCertificados_CheckedChanged(object sender, EventArgs e)
         {
             bool activo = chkCertificados.Checked;
@@ -363,19 +439,34 @@ namespace CopicanariasServerReport
                     Location = new Point(currentX, currentY + 3),
                     AutoSize = true // Nunca se cortará
                 };
-                // Empujamos X basándonos en el tamaño real del texto
                 currentX += lblN.PreferredSize.Width + 10;
 
                 // 2. Caja de texto
                 var txtNombre = new TextBox
                 {
-                    PlaceholderText = "Nombre del certificado",
+                    PlaceholderText = "Nombre del certificado *",
                     Font = new Font("Segoe UI", 11f),
                     Location = new Point(currentX, currentY),
-                    Width = 230, // Ancho fijo generoso
-                    BackColor = WinColor.White
+                    Width = 230,
+                    // Como empieza vacío, arranca directamente con el fondo de alerta
+                    BackColor = WinColor.FromArgb(255, 235, 235)
                 };
                 currentX += txtNombre.Width + 15;
+
+                // Evento en tiempo real para validar si está vacío
+                txtNombre.TextChanged += (s, ev) =>
+                {
+                    if (string.IsNullOrWhiteSpace(txtNombre.Text))
+                    {
+                        // Si lo borran todo, vuelve a ponerse rojo suave
+                        txtNombre.BackColor = WinColor.FromArgb(255, 235, 235);
+                    }
+                    else
+                    {
+                        // Si hay al menos un carácter, se pinta blanco
+                        txtNombre.BackColor = WinColor.White;
+                    }
+                };
 
                 // 3. Etiqueta "Caduca:"
                 var lblF = new Label
@@ -384,7 +475,7 @@ namespace CopicanariasServerReport
                     Font = new Font("Segoe UI", 11f),
                     ForeColor = WinColor.DimGray,
                     Location = new Point(currentX, currentY + 3),
-                    AutoSize = true // Vital para fuentes grandes
+                    AutoSize = true
                 };
                 currentX += lblF.PreferredSize.Width + 10;
 
@@ -394,11 +485,46 @@ namespace CopicanariasServerReport
                     Format = DateTimePickerFormat.Short,
                     Font = new Font("Segoe UI", 11f),
                     Location = new Point(currentX, currentY),
-                    Width = 120, // Ancho suficiente para la fecha
+                    Width = 120,
                     Value = DateTime.Today.AddYears(1)
                 };
+                currentX += dtp.Width + 15;
 
-                panelCertsDinamico.Controls.AddRange(new Control[] { lblN, txtNombre, lblF, dtp });
+                // 5. ETIQUETA DE ESTADO DINÁMICA
+                var lblEstadoCert = new Label
+                {
+                    AutoSize = true,
+                    Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                    Location = new Point(currentX, currentY + 3)
+                };
+
+                // Función interna para actualizar el texto y color
+                void ActualizarEstadoCert()
+                {
+                    int dias = (dtp.Value.Date - DateTime.Today).Days;
+                    if (dias < 0)
+                    {
+                        lblEstadoCert.Text = "❌ Caducado";
+                        lblEstadoCert.ForeColor = WinColor.FromArgb(226, 30, 45); // Rojo
+                    }
+                    else if (dias <= 92) // 3 meses exactos
+                    {
+                        lblEstadoCert.Text = "⚠️ Caduca pronto";
+                        lblEstadoCert.ForeColor = WinColor.FromArgb(220, 100, 0); // Naranja
+                    }
+                    else
+                    {
+                        lblEstadoCert.Text = "✅ Válido";
+                        lblEstadoCert.ForeColor = WinColor.FromArgb(34, 197, 94); // Verde
+                    }
+                }
+
+                // Disparamos la función si cambian la fecha, y también la llamamos 
+                // una vez al principio para que pinte el estado inicial
+                dtp.ValueChanged += (s, ev) => ActualizarEstadoCert();
+                ActualizarEstadoCert();
+
+                panelCertsDinamico.Controls.AddRange(new Control[] { lblN, txtNombre, lblF, dtp, lblEstadoCert });
                 _certControls.Add((txtNombre, dtp));
 
                 // Saltamos a la siguiente fila basándonos en el fondo del TextBox
@@ -887,8 +1013,5 @@ namespace CopicanariasServerReport
                 Log("      Comprueba que la ruta es accesible y el archivo no está abierto.\n");
             }
         }
-
-        private void lblTitSmart_Click(object sender, EventArgs e) { }
-        private void lblValUpd_Click(object sender, EventArgs e) { }
     }
 }

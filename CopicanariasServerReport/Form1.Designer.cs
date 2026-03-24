@@ -449,7 +449,6 @@
             lblValUpd.Size = new Size(94, 20);
             lblValUpd.TabIndex = 2;
             lblValUpd.Text = "Esperando...";
-            lblValUpd.Click += lblValUpd_Click;
             // 
             // pnlCardDrv
             // 
@@ -465,11 +464,11 @@
             // lblIconDrv
             // 
             lblIconDrv.AutoSize = true;
-            lblIconDrv.Font = new Font("Segoe UI", 24F);
+            lblIconDrv.Font = new Font("Segoe UI", 27.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblIconDrv.ForeColor = Color.FromArgb(17, 35, 108);
             lblIconDrv.Location = new Point(10, 10);
             lblIconDrv.Name = "lblIconDrv";
-            lblIconDrv.Size = new Size(52, 45);
+            lblIconDrv.Size = new Size(59, 50);
             lblIconDrv.TabIndex = 0;
             lblIconDrv.Text = "🖧";
             // 
@@ -572,7 +571,6 @@
             lblTitSmart.Size = new Size(189, 17);
             lblTitSmart.TabIndex = 1;
             lblTitSmart.Text = "Estado de Discos (S.M.A.R.T.)";
-            lblTitSmart.Click += lblTitSmart_Click;
             // 
             // lblValSmart
             // 

@@ -83,7 +83,7 @@ namespace CopicanariasServerReport
         public string NombreServidor { get; set; } = Environment.MachineName;
         public string SistemaOperativo { get; set; } = string.Empty;
         public string Arquitectura { get; set; } = Environment.Is64BitOperatingSystem ? "x64" : "x86";
-        public string UsuarioActivo { get; set; } = Environment.UserName;
+        public string UsuarioActivo { get; set; } = "";
         public string FechaHora { get; set; } = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
         public string MemoriaRAM { get; set; } = string.Empty;
 

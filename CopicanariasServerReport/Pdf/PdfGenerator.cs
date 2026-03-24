@@ -21,15 +21,28 @@ namespace CopicanariasServerReport.Pdf
                     // ══ CABECERA ══════════════════════════════════════════
                     page.Header().Column(hdr =>
                     {
+                        // LÓGICA DE NOMBRES Y DEPARTAMENTOS
+                        bool esTecnicoDF = r.TecnicoResponsable != null && r.TecnicoResponsable.Contains("(DF-Server)");
+
+                        // 1. Nombre del departamento
+                        string nombreDepartamento = esTecnicoDF ? "Departamento de DF-Server" : "Departamento de Sistemas";
+
+                        // 2. Limpiar el nombre del técnico (quitamos " (DF-Server)" si existe)
+                        string tecnicoLimpio = r.TecnicoResponsable?.Replace(" (DF-Server)", "").Trim() ?? "No especificado";
+
                         hdr.Item().Row(row =>
                         {
                             row.RelativeItem().Column(txt =>
                             {
                                 txt.Item().Text("INFORME DE AUDITORÍA Y MANTENIMIENTO")
                                     .SemiBold().FontSize(15).FontColor(Colors.Blue.Darken4);
-                                txt.Item().Text("Grupo Copicanarias — Dpto. Sistemas")
+
+                                // Usamos el nombre del departamento dinámico
+                                txt.Item().Text($"Grupo Copicanarias — {nombreDepartamento}")
                                     .FontSize(11).FontColor(Colors.Grey.Darken1);
-                                txt.Item().Text($"Técnico responsable: {r.TecnicoResponsable}")
+
+                                // Usamos el nombre del técnico limpio
+                                txt.Item().Text($"Técnico responsable: {tecnicoLimpio}")
                                     .FontSize(9).FontColor(Colors.Grey.Darken2);
                             });
                             row.ConstantItem(100).AlignRight().Height(40).Image(logoBytes).FitArea();
@@ -129,9 +142,9 @@ namespace CopicanariasServerReport.Pdf
                             var cJava = !javaInstalado ? Colors.Grey.Darken1
                                       : r.JavaAlDia ? Colors.Green.Darken2
                                       : Colors.Orange.Darken3;
-                            FilaColor(t, "Java (JRE/JDK):", r.VersionJava, cJava);
+                            FilaColor(t, "Java (JRE):", r.VersionJava, cJava);
                             if (!string.IsNullOrEmpty(r.JavaVersionOnline))
-                                Fila(t, "Última versión LTS:", r.JavaVersionOnline);
+                                Fila(t, "Última versión:", r.JavaVersionOnline);
                         });
 
                         // ── 5. LIMPIEZA ───────────────────────────────────
@@ -157,7 +170,7 @@ namespace CopicanariasServerReport.Pdf
                                     ? $"{r.BytesLiberados / 1073741824.0:F2} GB"
                                     : $"{r.BytesLiberados / 1048576.0:F2} MB";
                                 Fila(t, "Archivos eliminados:", $"{r.ArchivosBorrados} archivos  ({espacio} liberados)");
-                                Fila(t, "Áreas limpiadas:", "Temp usuario  ·  Temp Windows  ·  Caché Windows Update");
+                                Fila(t, "Áreas limpiadas:", "Temp de usuarios  ·  Temp Windows  ·  Caché Windows Update");
                             });
                         }
 
