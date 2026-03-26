@@ -69,6 +69,30 @@ namespace CopicanariasServerReport
             numFirmas.ValueChanged += (s, ev) => ActualizarAvisoFirmas();
             numFirmas.KeyUp += (s, ev) => ActualizarAvisoFirmas();
 
+            // Escuchamos CUALQUIER pulsación de tecla o clic de ratón al instante (CERTIFICADOS)
+            numCertificados.ValueChanged += (s, ev) =>
+            {
+                if (chkCertificados.Checked) RebuildCertificadoFields((int)numCertificados.Value);
+            };
+
+            numCertificados.KeyUp += (s, ev) =>
+            {
+                // 1. Si la caja no está vacía y es un número válido
+                if (chkCertificados.Checked && int.TryParse(numCertificados.Text, out int cantidadTecleada))
+                {
+                    // 2. Por seguridad, no dejamos que pasen del límite que está en el diseñador (20)
+                    if (cantidadTecleada > numCertificados.Maximum) cantidadTecleada = (int)numCertificados.Maximum;
+                    if (cantidadTecleada < numCertificados.Minimum) cantidadTecleada = (int)numCertificados.Minimum;
+
+                    RebuildCertificadoFields(cantidadTecleada);
+                }
+                // 3. Si borran todo el texto dejándolo en blanco, ocultamos los campos sin dar error
+                else if (chkCertificados.Checked && string.IsNullOrWhiteSpace(numCertificados.Text))
+                {
+                    RebuildCertificadoFields(0);
+                }
+            };
+
             AjustarPosicionesDF();
             AjustarPosicionesDashboard();
 

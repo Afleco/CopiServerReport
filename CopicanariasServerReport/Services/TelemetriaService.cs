@@ -180,14 +180,18 @@ namespace CopicanariasServerReport.Services
 
         private static bool BuscarAvTerceros(DatosServidor reporte)
         {
-            string[] keywords = { "antivirus", "endpoint", "security", "antimalware",
-                                  "panda", "eset", "kaspersky", "sophos", "bitdefender",
-                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike", "malwarebytes" };
+            string[] keywords = { "threatdown", "antivirus", "endpoint", "security", "antimalware",
+                                  "panda", "watchguard", "eset", "kaspersky", "sophos", "bitdefender",
+                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike", "malwarebytes",
+                                  "cylance", "trend micro", "fortinet", "forticlient", "avast", "avg",
+                                  "cisco", "avira", "f-secure", "webroot", "palo alto", "cortex", "check point", "acronis" };
+
             string[] uninstallPaths = {
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
                 @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
             };
 
+            // --- FASE 1: Búsqueda en Programas Instalados (Registro) ---
             try
             {
                 foreach (string path in uninstallPaths)
@@ -209,13 +213,57 @@ namespace CopicanariasServerReport.Services
                         {
                             string ver = app.GetValue("DisplayVersion")?.ToString() ?? "";
                             reporte.AntivirusNombre = string.IsNullOrEmpty(ver) ? displayName : $"{displayName} (v{ver})";
-                            reporte.AntivirusEstado = "Instalado (detectado en sistema)";
+                            reporte.AntivirusEstado = "Activo (detectado en sistema)";
                             return true;
                         }
                     }
                 }
             }
             catch { }
+
+            // --- FASE 2: Búsqueda blindada en Servicios de Windows ---
+            try
+            {
+                // Pedimos también el PathName (la ruta del ejecutable del servicio)
+                using var s = new ManagementObjectSearcher("SELECT DisplayName, Name, State, PathName FROM Win32_Service");
+                foreach (ManagementObject svc in s.Get())
+                {
+                    using (svc)
+                    {
+                        string displayName = svc["DisplayName"]?.ToString() ?? "";
+                        string pathName = svc["PathName"]?.ToString() ?? "";
+
+                        if (string.IsNullOrEmpty(displayName)) continue;
+
+                        string lowerDisplay = displayName.ToLower();
+                        string lowerPath = pathName.ToLower();
+
+                        // Ignoramos servicios nativos de Windows y Microsoft
+                        if (lowerPath.Contains("system32") || lowerDisplay.Contains("microsoft") || lowerDisplay.Contains("windows"))
+                            continue;
+
+                        // Ahora podemos usar palabras clave un poco más amplias con total seguridad
+                        string[] edrMarcas = { "threatdown", "malwarebytes", "crowdstrike", "sentinel", "sophos",
+                                   "cylance", "carbon black", "trellix", "bitdefender", "eset", "kaspersky",
+                                   "symantec", "mcafee", "watchguard", "fortinet", "forticlient",
+                                   "trend micro", "cybereason", "cortex", "check point", "cisco" };
+
+                        if (edrMarcas.Any(kw => lowerDisplay.Contains(kw)))
+                        {
+                            string estado = svc["State"]?.ToString() ?? "";
+                            reporte.AntivirusNombre = displayName;
+
+                            reporte.AntivirusEstado = estado.Equals("Running", StringComparison.OrdinalIgnoreCase)
+                                ? "Activo (Servicio en ejecución)"
+                                : "Instalado (Servicio detenido) ⚠️";
+
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+
             return false;
         }
 

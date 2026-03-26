@@ -54,22 +54,54 @@ namespace CopicanariasServerReport.Services
                 var smartPorIndice = new Dictionary<int, SmartAtributos>();
                 CargarTelemetriaWmi(smartPorIndice);
 
+                // ── Mapeo de tipos de bus modernos para esquivar el falso "SCSI" ──
+                var busModerno = new Dictionary<int, string>();
+                try
+                {
+                    using var sBus = new ManagementObjectSearcher(@"root\Microsoft\Windows\Storage", "SELECT DeviceId, BusType FROM MSFT_PhysicalDisk");
+                    foreach (ManagementObject obj in sBus.Get())
+                    {
+                        if (int.TryParse(obj["DeviceId"]?.ToString(), out int devId))
+                        {
+                            int busType = Convert.ToInt32(obj["BusType"] ?? 0);
+                            // 17 = NVMe, 11 = SATA, 7 = USB, 8 = RAID
+                            if (busType == 17) busModerno[devId] = "NVMe";
+                            else if (busType == 11) busModerno[devId] = "SATA";
+                            else if (busType == 7) busModerno[devId] = "USB";
+                        }
+                    }
+                }
+                catch { /* Ignoramos si la API no está disponible */ }
+
                 using var s = new ManagementObjectSearcher("SELECT Model, Status, InterfaceType, Size, Index FROM Win32_DiskDrive");
                 foreach (ManagementObject d in s.Get())
                 {
                     using (d)
                     {
                         string modelo = d["Model"]?.ToString()?.Trim() ?? "Desconocido";
-                        string tipo = d["InterfaceType"]?.ToString() ?? "Desconocido";
                         string estadoPnp = d["Status"]?.ToString() ?? "Desconocido";
-
+                        
                         long sizeBytes = 0; try { sizeBytes = Convert.ToInt64(d["Size"] ?? 0L); } catch { }
                         int diskIndex = 0; try { diskIndex = Convert.ToInt32(d["Index"] ?? 0); } catch { }
+
+                        // ── ASIGNACIÓN INTELIGENTE DE INTERFAZ ──
+                        string tipo = "Desconocido";
+                        string tipoWmiViejo = d["InterfaceType"]?.ToString() ?? "";
+
+                        // 1. Priorizamos la API moderna (inmune al falso SCSI)
+                        if (busModerno.TryGetValue(diskIndex, out string tipoReal))
+                            tipo = tipoReal;
+                        // 2. Si falla, miramos si el modelo dice explícitamente NVMe
+                        else if (modelo.IndexOf("NVMe", StringComparison.OrdinalIgnoreCase) >= 0)
+                            tipo = "NVMe";
+                        // 3. Fallback a lo que diga WMI viejo
+                        else
+                            tipo = tipoWmiViejo.ToUpper().Contains("USB") ? "USB" : tipoWmiViejo;
 
                         var disco = new DiscoInfo
                         {
                             Modelo = modelo,
-                            Tipo = tipo.ToUpper().Contains("USB") ? "USB" : tipo,
+                            Tipo = tipo,
                             TamanoGB = sizeBytes / 1073741824.0
                         };
 
@@ -113,6 +145,9 @@ namespace CopicanariasServerReport.Services
                         var nvmeAttrs = LeerNvmeDirecto(diskIndex);
                         if (nvmeAttrs != null)
                         {
+                            // Si logramos leerlo por el protocolo NVMe, ES un NVMe garantizado.
+                            disco.Tipo = "NVMe"; 
+
                             if (!disco.Temperatura.HasValue) disco.Temperatura = nvmeAttrs.Temperatura;
                             if (!disco.HorasEncendido.HasValue) disco.HorasEncendido = nvmeAttrs.HorasEncendido;
                             if (!disco.TieneDatosSalud && nvmeAttrs.TieneSalud)
