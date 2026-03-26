@@ -65,8 +65,9 @@ namespace CopicanariasServerReport
                 Visible = false // Por defecto oculta
             };
             panelDF.Controls.Add(_lblAvisoFirmas);
-            // Escuchamos cuando el usuario cambia el numerito
+            // Escuchamos CUALQUIER pulsación de tecla o clic de ratón al instante
             numFirmas.ValueChanged += (s, ev) => ActualizarAvisoFirmas();
+            numFirmas.KeyUp += (s, ev) => ActualizarAvisoFirmas();
 
             AjustarPosicionesDF();
             AjustarPosicionesDashboard();
@@ -520,10 +521,12 @@ namespace CopicanariasServerReport
                     }
                 }
 
-                // Disparamos la función si cambian la fecha, y también la llamamos 
-                // una vez al principio para que pinte el estado inicial
+                // Escuchamos el ratón (ValueChanged) y el teclado (CloseUp y KeyUp) para máxima inmediatez
                 dtp.ValueChanged += (s, ev) => ActualizarEstadoCert();
-                ActualizarEstadoCert();
+                dtp.CloseUp += (s, ev) => ActualizarEstadoCert(); // Cuando cierra el desplegable
+                dtp.KeyUp += (s, ev) => ActualizarEstadoCert();   // Si el técnico teclea la fecha a mano
+
+                ActualizarEstadoCert(); // Pintar estado inicial
 
                 panelCertsDinamico.Controls.AddRange(new Control[] { lblN, txtNombre, lblF, dtp, lblEstadoCert });
                 _certControls.Add((txtNombre, dtp));
@@ -848,22 +851,29 @@ namespace CopicanariasServerReport
             int archivosBorrados = 0;
             long bytesLiberados = 0;
 
-            // 1. Preparamos la lista de rutas base (las de Windows)
+            // 1. Preparamos la lista de rutas base dinámicas
             var rutas = new List<(string Ruta, string Nombre)>();
-            rutas.Add((@"C:\Windows\Temp", "Temp de Windows"));
-            rutas.Add((@"C:\Windows\SoftwareDistribution\Download", "Caché de Windows Update"));
+
+            // Le preguntamos a .NET dónde está la carpeta Windows (ej: C:\Windows o D:\Windows)
+            string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+
+            rutas.Add((Path.Combine(winDir, "Temp"), "Temp de Windows"));
+            rutas.Add((Path.Combine(winDir, @"SoftwareDistribution\Download"), "Caché de Windows Update"));
 
             // 2. Buscar las carpetas Temp de TODOS los usuarios del equipo
             try
             {
-                string baseUsers = @"C:\Users";
+                // Extraemos la raíz del disco donde está Windows (ej: "C:\") y le sumamos "Users"
+                string sysDrive = Path.GetPathRoot(winDir);
+                string baseUsers = Path.Combine(sysDrive, "Users");
+
                 if (Directory.Exists(baseUsers))
                 {
                     foreach (var dirUsuario in Directory.GetDirectories(baseUsers))
                     {
                         string nombreUser = new DirectoryInfo(dirUsuario).Name;
 
-                        // Saltamos carpetas de sistema que no son usuarios reales
+                        // Saltamos carpetas de sistema que no son usuarios reales    // AQUI SE PUEDEN AÑADIR USUARIOS QUE NO QUERAMOS INCLUIR EN LA LIMPIEZA
                         if (nombreUser.Equals("Public", StringComparison.OrdinalIgnoreCase) ||
                             nombreUser.Equals("Default", StringComparison.OrdinalIgnoreCase) ||
                             nombreUser.Equals("Default User", StringComparison.OrdinalIgnoreCase) ||
@@ -899,8 +909,8 @@ namespace CopicanariasServerReport
                 archivosBorrados += arch;
                 bytesLiberados += bytes;
 
-                // Para no saturar el log, solo imprimimos si borró algo o si es una ruta principal
-                if (arch > 0 || nombre.Contains("Windows") || nombre.Contains("Caché"))
+                // Si se quiere obviar imprimir rutas con 0 archivos borrados, se puede cambiar la condición a "arch > 0". Sin embargo, se decidió mostrar también las rutas que no tenían archivos para confirmar que se han revisado.
+                if (arch >= 0 || nombre.Contains("Windows") || nombre.Contains("Caché"))
                 {
                     Log($"    · {nombre}: {arch} archivos — {bytes / 1048576.0:F1} MB\n");
                 }

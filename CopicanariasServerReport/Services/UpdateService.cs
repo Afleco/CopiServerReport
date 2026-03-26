@@ -26,7 +26,7 @@ namespace CopicanariasServerReport.Services
 
                         var session = new UpdateSession();
                         var searcher = session.CreateUpdateSearcher();
-                        var result = searcher.Search("IsInstalled=0 and IsHidden=0");
+                        var result = searcher.Search("IsInstalled=0 and DeploymentAction=*");
 
                         foreach (IUpdate upd in result.Updates)
                         {
