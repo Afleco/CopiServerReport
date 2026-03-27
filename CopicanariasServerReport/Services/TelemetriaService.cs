@@ -11,11 +11,17 @@ namespace CopicanariasServerReport.Services
         // Mantenemos el parámetro log opcional para no romper Form1.cs
         public static void RecopilarTelemetria(DatosServidor reporte, Action<string> log = null)
         {
+            log?.Invoke("\n>>> Extrayendo información de Sistema y Seguridad...\n");
+
             RecopilarSistemaOperativo(reporte);
             RecopilarUsuarioActivo(reporte);
             RecopilarRAM(reporte);
             RecopilarDiscosLogicos(reporte);
+
+            // Antivirus y su Log en tiempo real
             RecopilarAntivirus(reporte);
+            log?.Invoke($"    · Antivirus: {reporte.AntivirusNombre} [{reporte.AntivirusEstado}]\n");
+
             RecopilarRed(reporte);
             RecopilarUnidadesRed(reporte);
             RecopilarDrivers(reporte);
@@ -24,6 +30,7 @@ namespace CopicanariasServerReport.Services
             if (reporte.EsTecnicoDf)
             {
                 RecopilarEstadoBackup(reporte);
+                log?.Invoke($"    · Backup Local: {reporte.EstadoBackup} (Última: {reporte.FechaUltimoBackup})\n");
             }
         }
 
@@ -48,7 +55,6 @@ namespace CopicanariasServerReport.Services
         {
             try
             {
-                // Le preguntamos a Windows quién está en la sesión física del monitor
                 using var s = new ManagementObjectSearcher("SELECT UserName FROM Win32_ComputerSystem");
                 foreach (ManagementObject obj in s.Get())
                     using (obj)
@@ -56,7 +62,6 @@ namespace CopicanariasServerReport.Services
                         string fullUser = obj["UserName"]?.ToString();
                         if (!string.IsNullOrEmpty(fullUser))
                         {
-                            // Suele venir como "NOMBREEQUIPO\Alejandro", lo partimos para quedarnos solo con "Alejandro"
                             var partes = fullUser.Split('\\');
                             reporte.UsuarioActivo = partes.Length > 1 ? partes[1] : fullUser;
                             return;
@@ -65,7 +70,6 @@ namespace CopicanariasServerReport.Services
             }
             catch { }
 
-            // Si por algún motivo de seguridad Windows bloquea la consulta, usamos el plan B (mostramos el administrador que ejecuta el programa, aunque no sea el usuario real)
             reporte.UsuarioActivo = Environment.UserName;
         }
 
@@ -106,24 +110,32 @@ namespace CopicanariasServerReport.Services
             }
         }
 
-        // ── Antivirus ────────────────────────────────────────────────
+        // ── Antivirus (Detección Multinivel) ─────────────────────────
         private static void RecopilarAntivirus(DatosServidor reporte)
         {
             reporte.AntivirusNombre = "";
             reporte.AntivirusEstado = "";
             reporte.AntivirusRuta = "";
-            bool encontrado = false;
+            bool encontradoTercero = false;
 
+            // --- FASE 1: Buscar antivirus de terceros en SecurityCenter ---
             try
             {
                 using var s = new ManagementObjectSearcher(
                     "root\\SecurityCenter2",
-                    "SELECT displayName, productState, pathToSignedProductExe FROM AntivirusProduct");
+                    "SELECT displayName, productState FROM AntivirusProduct");
+
                 foreach (ManagementObject av in s.Get())
+                {
                     using (av)
                     {
-                        reporte.AntivirusNombre = av["displayName"]?.ToString() ?? "";
-                        reporte.AntivirusRuta = av["pathToSignedProductExe"]?.ToString() ?? "";
+                        string nombre = av["displayName"]?.ToString() ?? "";
+
+                        // Ignoramos a Defender para dar prioridad a los de terceros
+                        if (nombre.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0)
+                            continue;
+
+                        reporte.AntivirusNombre = nombre;
                         try
                         {
                             uint state = Convert.ToUInt32(av["productState"] ?? 0u);
@@ -132,25 +144,32 @@ namespace CopicanariasServerReport.Services
                             reporte.AntivirusEstado = activo ? (alDia ? "Activo y actualizado" : "Activo — Desactualizado") : "Deshabilitado ⚠️";
                         }
                         catch { reporte.AntivirusEstado = "Activo (estado no determinado)"; }
-                        encontrado = true;
+
+                        encontradoTercero = true;
                         break;
                     }
+                }
             }
             catch { }
 
-            if (!encontrado)
+            // --- FASE 2: Nivel Kernel (Drivers FSFilter Anti-Virus) para EDRs ocultos ---
+            if (!encontradoTercero)
             {
-                encontrado = BuscarAvTerceros(reporte);
+                encontradoTercero = BuscarAvTerceros(reporte);
             }
 
-            if (!encontrado)
+            // --- FASE 3: Si no hay NADA de terceros, comprobamos Windows Defender ---
+            if (!encontradoTercero)
             {
                 try
                 {
                     using var s = new ManagementObjectSearcher(
                         "root\\Microsoft\\Windows\\Defender",
-                        "SELECT AMProductVersion, AMRunningMode, AntivirusEnabled, AntivirusSignatureAge FROM MSFT_MpComputerStatus");
+                        "SELECT AMProductVersion, AMRunningMode, AntivirusEnabled FROM MSFT_MpComputerStatus");
+
+                    bool defenderEncontrado = false;
                     foreach (ManagementObject mp in s.Get())
+                    {
                         using (mp)
                         {
                             string version = mp["AMProductVersion"]?.ToString() ?? "";
@@ -164,103 +183,90 @@ namespace CopicanariasServerReport.Services
                             else
                                 reporte.AntivirusEstado = "Activo y actualizado";
 
-                            encontrado = true;
+                            defenderEncontrado = true;
                             break;
                         }
-                }
-                catch { }
-            }
+                    }
 
-            if (!encontrado)
-            {
-                reporte.AntivirusNombre = "No detectado";
-                reporte.AntivirusEstado = "No fue posible consultar el estado del antivirus";
+                    if (!defenderEncontrado)
+                    {
+                        reporte.AntivirusNombre = "No detectado";
+                        reporte.AntivirusEstado = "No fue posible consultar el estado del antivirus";
+                    }
+                }
+                catch
+                {
+                    reporte.AntivirusNombre = "No detectado";
+                    reporte.AntivirusEstado = "No fue posible consultar el estado del antivirus";
+                }
             }
         }
 
         private static bool BuscarAvTerceros(DatosServidor reporte)
         {
-            string[] keywords = { "threatdown", "antivirus", "endpoint", "security", "antimalware",
-                                  "panda", "watchguard", "eset", "kaspersky", "sophos", "bitdefender",
-                                  "symantec", "mcafee", "trellix", "sentinel", "crowdstrike", "malwarebytes",
-                                  "cylance", "trend micro", "fortinet", "forticlient", "avast", "avg",
-                                  "cisco", "avira", "f-secure", "webroot", "palo alto", "cortex", "check point", "acronis" };
-
-            string[] uninstallPaths = {
-                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-            };
-
-            // --- FASE 1: Búsqueda en Programas Instalados (Registro) ---
+            // --- NIVEL 1: FSFilter Anti-Virus Drivers (EDRs puros con driver de kernel) ---
             try
             {
-                foreach (string path in uninstallPaths)
-                {
-                    using var uninstall = Registry.LocalMachine.OpenSubKey(path);
-                    if (uninstall == null) continue;
-
-                    foreach (string sub in uninstall.GetSubKeyNames())
+                using var s = new ManagementObjectSearcher(
+                    "SELECT DisplayName, State FROM Win32_SystemDriver WHERE Group = 'FSFilter Anti-Virus'");
+                foreach (ManagementObject driver in s.Get())
+                    using (driver)
                     {
-                        using var app = uninstall.OpenSubKey(sub);
-                        if (app == null) continue;
-
-                        string displayName = app.GetValue("DisplayName")?.ToString() ?? "";
+                        string displayName = driver["DisplayName"]?.ToString() ?? "";
                         if (string.IsNullOrEmpty(displayName)) continue;
-                        if (displayName.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0) continue;
 
-                        string lower = displayName.ToLower();
-                        if (keywords.Any(kw => lower.Contains(kw)))
-                        {
-                            string ver = app.GetValue("DisplayVersion")?.ToString() ?? "";
-                            reporte.AntivirusNombre = string.IsNullOrEmpty(ver) ? displayName : $"{displayName} (v{ver})";
-                            reporte.AntivirusEstado = "Activo (detectado en sistema)";
-                            return true;
-                        }
+                        // Ignoramos a Defender para dar prioridad a los de terceros
+                        if (displayName.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            displayName.Equals("WdFilter", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        string nombreLimpio = displayName
+                            .Replace(" Mini-Filter Driver", "").Replace(" Minifilter Driver", "")
+                            .Replace(" File System Filter", "").Replace(" Filter Driver", "").Trim();
+
+                        reporte.AntivirusNombre = $"{nombreLimpio} (Motor Core EDR)";
+                        reporte.AntivirusEstado = (driver["State"]?.ToString() ?? "")
+                            .Equals("Running", StringComparison.OrdinalIgnoreCase)
+                            ? "Activo (Driver en ejecución)" : "Instalado (Driver detenido) ⚠️";
+                        return true;
                     }
-                }
             }
             catch { }
 
-            // --- FASE 2: Búsqueda blindada en Servicios de Windows ---
+            // --- NIVEL 2: Servicios por DisplayName (cubre agentes userspace como Malwarebytes EA) ---
+            string[] edrMarcas = { "threatdown", "malwarebytes", "crowdstrike", "sentinel", "sophos",
+                                   "cylance", "carbon black", "trellix", "bitdefender", "eset",
+                                   "kaspersky", "symantec", "mcafee", "watchguard", "fortinet",
+                                   "forticlient", "trend micro", "cybereason", "cortex",
+                                   "check point", "cisco", "panda", "avast", "avg", "avira" };
+
+            // LISTA NEGRA: Palabras que delatan que NO es el motor principal del antivirus
+            string[] ignorar = { "webadvisor", "vpn", "updater", "installer", "safeconnect",
+                                 "management agent", "network", "firewall", "identity", "update service" };
+
             try
             {
-                // Pedimos también el PathName (la ruta del ejecutable del servicio)
-                using var s = new ManagementObjectSearcher("SELECT DisplayName, Name, State, PathName FROM Win32_Service");
+                using var s = new ManagementObjectSearcher(
+                    "SELECT DisplayName, State FROM Win32_Service");
                 foreach (ManagementObject svc in s.Get())
-                {
                     using (svc)
                     {
                         string displayName = svc["DisplayName"]?.ToString() ?? "";
-                        string pathName = svc["PathName"]?.ToString() ?? "";
-
                         if (string.IsNullOrEmpty(displayName)) continue;
 
-                        string lowerDisplay = displayName.ToLower();
-                        string lowerPath = pathName.ToLower();
+                        string lower = displayName.ToLower();
 
-                        // Ignoramos servicios nativos de Windows y Microsoft
-                        if (lowerPath.Contains("system32") || lowerDisplay.Contains("microsoft") || lowerDisplay.Contains("windows"))
-                            continue;
+                        // Aplicamos el filtro de exclusiones ANTES de buscar la marca
+                        if (ignorar.Any(ig => lower.Contains(ig))) continue;
 
-                        // Ahora podemos usar palabras clave un poco más amplias con total seguridad
-                        string[] edrMarcas = { "threatdown", "malwarebytes", "crowdstrike", "sentinel", "sophos",
-                                   "cylance", "carbon black", "trellix", "bitdefender", "eset", "kaspersky",
-                                   "symantec", "mcafee", "watchguard", "fortinet", "forticlient",
-                                   "trend micro", "cybereason", "cortex", "check point", "cisco" };
-
-                        if (edrMarcas.Any(kw => lowerDisplay.Contains(kw)))
+                        if (edrMarcas.Any(kw => lower.Contains(kw)))
                         {
                             string estado = svc["State"]?.ToString() ?? "";
                             reporte.AntivirusNombre = displayName;
-
                             reporte.AntivirusEstado = estado.Equals("Running", StringComparison.OrdinalIgnoreCase)
-                                ? "Activo (Servicio en ejecución)"
-                                : "Instalado (Servicio detenido) ⚠️";
-
+                                ? "Activo (Servicio en ejecución)" : "Instalado (Servicio detenido) ⚠️";
                             return true;
                         }
                     }
-                }
             }
             catch { }
 
@@ -368,7 +374,6 @@ namespace CopicanariasServerReport.Services
             {
                 string cmdPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe");
 
-                // Obligar a usar el CMD nativo de 64 bits si estamos en una app de 32 bits
                 if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
                 {
                     cmdPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "sysnative", "cmd.exe");
@@ -394,7 +399,6 @@ namespace CopicanariasServerReport.Services
                 {
                     string lower = linea.ToLower();
 
-                    // FIX: Evitamos leer la línea del "Destino de copia de seguridad"
                     if (lower.Contains("backup time:") || lower.Contains("hora de copia") || lower.Contains("hora de la copia"))
                     {
                         var partes = linea.Split(new[] { ':' }, 2);
@@ -414,7 +418,6 @@ namespace CopicanariasServerReport.Services
             }
             catch { }
 
-            // ── Métodos de respaldo originales ──
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -476,7 +479,6 @@ namespace CopicanariasServerReport.Services
                 @"SOFTWARE\WOW6432Node\JavaSoft\Java Runtime Environment"
             };
 
-            // 1. Buscamos en el registro las subclaves que tengan el formato "1.8.0_XXX"
             foreach (var keyPath in registryPaths)
             {
                 try
@@ -490,11 +492,10 @@ namespace CopicanariasServerReport.Services
                         if (match.Success)
                         {
                             int updateNum = int.Parse(match.Groups[1].Value);
-                            // Nos quedamos siempre con el Update más alto por si hay restos viejos
                             if (updateNum > updateLocal)
                             {
                                 updateLocal = updateNum;
-                                versionInstalada = subName; // Ej: 1.8.0_481
+                                versionInstalada = subName;
                             }
                         }
                     }
@@ -510,15 +511,10 @@ namespace CopicanariasServerReport.Services
 
             reporte.VersionJava = $"Java 8 Update {updateLocal}";
 
-            // 2. Consultar online leyendo directamente la página oficial de Java
             try
             {
                 log?.Invoke("    · Java: Consultando última versión en java.com...\n");
-
-                // Descargamos el código fuente de la página de descargas de java.com
                 string html = await http.GetStringAsync("https://www.java.com/es/download/");
-
-                // Buscamos el texto literal "Versión 8 Update XXX" o "Version 8 Update XXX"
                 var matchOnline = Regex.Match(html, @"Versi(?:ó|o)n 8 Update (\d+)");
 
                 if (matchOnline.Success)

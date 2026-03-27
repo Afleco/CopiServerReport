@@ -101,23 +101,75 @@ namespace CopicanariasServerReport
 
         private void AjustarPosicionesDashboard()
         {
-            int margen = 12; // La distancia entre el icono y el texto
+            int margen = 12; // Distancia entre icono y texto
 
-            // Tarjeta Windows Update
+            // 1. Alineamos los textos respecto a sus iconos
             lblTitUpd.Left = lblIconUpd.Right + margen;
             lblValUpd.Left = lblTitUpd.Left;
 
-            // Tarjeta Controladores
             lblTitDrv.Left = lblIconDrv.Right + margen;
             lblValDrv.Left = lblTitDrv.Left;
 
-            // Tarjeta Limpieza
             lblTitTmp.Left = lblIconTmp.Right + margen;
             lblValTmp.Left = lblTitTmp.Left;
 
-            // Tarjeta S.M.A.R.T.
             lblTitSmart.Left = lblIconSmart.Right + margen;
             lblValSmart.Left = lblTitSmart.Left;
+
+            // 2. EL TRUCO DE LA MEDICIÓN FANTASMA (Evitar saltos visuales)
+            // Guardamos los textos actuales ("Esperando...")
+            string txtUpdReal = lblValUpd.Text;
+            string txtDrvReal = lblValDrv.Text;
+
+            // Ponemos los textos más largos posibles temporalmente
+            lblValUpd.Text = "99 Importantes\n99 Opcionales";
+            lblValDrv.Text = "Todos operativos";
+
+            // Calculamos cuánto ancho necesitan esas tarjetas para albergar esos textos largos
+            int anchoIdealUpd = lblValUpd.Right + 15;
+            int anchoIdealDrv = lblValDrv.Right + 15;
+
+            // Restauramos los textos originales ("Esperando...")
+            lblValUpd.Text = txtUpdReal;
+            lblValDrv.Text = txtDrvReal;
+
+            // 3. APLICAR LA CUADRÍCULA SIMÉTRICA Y ESTÁTICA
+            // Cogemos el mayor de los dos (o el ancho de diseño de 220px) para que sean idénticas
+            int anchoTarjeta = Math.Max(220, Math.Max(anchoIdealUpd, anchoIdealDrv));
+
+            // Aplicamos los anchos fijos a la fila superior
+            pnlCardUpd.Width = anchoTarjeta;
+
+            int separacionCentros = 10;
+            pnlCardDrv.Left = pnlCardUpd.Right + separacionCentros;
+            pnlCardDrv.Width = anchoTarjeta;
+
+            // 4. IGUALAR EL ANCHO DE TODO EL BLOQUE DERECHO
+            int anchoTotalDashboard = pnlCardDrv.Right - pnlCardUpd.Left;
+
+            pnlCardTmp.Width = anchoTotalDashboard;
+            pnlCardSmart.Width = anchoTotalDashboard;
+            rtbLog.Width = anchoTotalDashboard;
+            btnAuto.Width = anchoTotalDashboard;
+
+            // Ajustar los discos por dentro
+            flpDiscos.Width = anchoTotalDashboard - 30;
+            foreach (Control ctrl in flpDiscos.Controls)
+            {
+                ctrl.Width = flpDiscos.Width - 25;
+            }
+
+            // 5. AUTO-AJUSTE ESTÁTICO DE VENTANA
+            int margenDerechoVentana = 30;
+            int nuevoAnchoVentana = Math.Max(820, pnlCardDrv.Right + margenDerechoVentana);
+
+            // Si la cuadrícula necesita más de 820px, la ventana se estira UNA SOLA VEZ al arrancar y se queda fija
+            if (this.ClientSize.Width != nuevoAnchoVentana)
+            {
+                this.ClientSize = new WinSize(nuevoAnchoVentana, this.ClientSize.Height);
+                // Anclamos el botón de log
+                btnToggleLog.Left = this.ClientSize.Width - btnToggleLog.Width - 30;
+            }
         }
         private void AjustarPosicionesDF()
         {
@@ -323,8 +375,10 @@ namespace CopicanariasServerReport
                     pnlDisco.Paint += (s, e) => { e.Graphics.DrawLine(Pens.Gainsboro, 0, pnlDisco.Height - 1, pnlDisco.Width, pnlDisco.Height - 1); };
 
                     flpDiscos.Controls.Add(pnlDisco);
+
                 }
             }
+            AjustarPosicionesDashboard();
         }
 
         private Label CrearBadge(string texto, WinColor fondo, WinColor textoColor, ref int currentX, int y)
