@@ -14,10 +14,8 @@ namespace CopicanariasServerReport
 
         private readonly List<(TextBox Nombre, DateTimePicker Fecha)> _certControls = new();
 
-        // ETIQUETA PARA EL AVISO DE FIRMAS
         private Label _lblAvisoFirmas;
 
-        // PALETA DE COLORES
         private static readonly WinColor ClrFondo = WinColor.FromArgb(30, 30, 30);
         private static readonly WinColor ClrTexto = WinColor.FromArgb(212, 212, 212);
         private static readonly WinColor ClrSeccion = WinColor.FromArgb(86, 156, 214);
@@ -48,7 +46,7 @@ namespace CopicanariasServerReport
             rtbLog.ForeColor = ClrTexto;
             rtbLog.Clear();
 
-            // AQUÍ SE PUEDEN AÑADIR TÉCNICOS A FUTURO, SI EL TÉCNICO ESCOGIDO CONTIENE "(DF-Server)" SE MOSTRARÁ EL PANEL DE DF-SERVER
+            // AQUÍ SE PUEDEN AÑADIR TÉCNICOS (SI ESTE ES DE DF-SERVER SU NOMBRE DEBE TENER "DF-SERVER")
             cmbTecnico.Items.Add("— Seleccione un técnico —");
             cmbTecnico.Items.Add("Alejandro Martel");
             cmbTecnico.Items.Add("Himar Bautista");
@@ -57,19 +55,16 @@ namespace CopicanariasServerReport
             cmbTecnico.Items.Add("Francisco Muñoz (DF-Server)");
             cmbTecnico.SelectedIndex = 0;
 
-            // --- INICIALIZAMOS LA ETIQUETA DE AVISO DE FIRMAS ---
             _lblAvisoFirmas = new Label
             {
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                Visible = false // Por defecto oculta
+                Visible = false
             };
             panelDF.Controls.Add(_lblAvisoFirmas);
-            // Escuchamos CUALQUIER pulsación de tecla o clic de ratón al instante
             numFirmas.ValueChanged += (s, ev) => ActualizarAvisoFirmas();
             numFirmas.KeyUp += (s, ev) => ActualizarAvisoFirmas();
 
-            // Escuchamos CUALQUIER pulsación de tecla o clic de ratón al instante (CERTIFICADOS)
             numCertificados.ValueChanged += (s, ev) =>
             {
                 if (chkCertificados.Checked) RebuildCertificadoFields((int)numCertificados.Value);
@@ -77,16 +72,13 @@ namespace CopicanariasServerReport
 
             numCertificados.KeyUp += (s, ev) =>
             {
-                // 1. Si la caja no está vacía y es un número válido
                 if (chkCertificados.Checked && int.TryParse(numCertificados.Text, out int cantidadTecleada))
                 {
-                    // 2. Por seguridad, no dejamos que pasen del límite que está en el diseñador (20)
                     if (cantidadTecleada > numCertificados.Maximum) cantidadTecleada = (int)numCertificados.Maximum;
                     if (cantidadTecleada < numCertificados.Minimum) cantidadTecleada = (int)numCertificados.Minimum;
 
                     RebuildCertificadoFields(cantidadTecleada);
                 }
-                // 3. Si borran todo el texto dejándolo en blanco, ocultamos los campos sin dar error
                 else if (chkCertificados.Checked && string.IsNullOrWhiteSpace(numCertificados.Text))
                 {
                     RebuildCertificadoFields(0);
@@ -101,9 +93,8 @@ namespace CopicanariasServerReport
 
         private void AjustarPosicionesDashboard()
         {
-            int margen = 12; // Distancia entre icono y texto
+            int margen = 12;
 
-            // 1. Alineamos los textos respecto a sus iconos
             lblTitUpd.Left = lblIconUpd.Right + margen;
             lblValUpd.Left = lblTitUpd.Left;
 
@@ -116,35 +107,26 @@ namespace CopicanariasServerReport
             lblTitSmart.Left = lblIconSmart.Right + margen;
             lblValSmart.Left = lblTitSmart.Left;
 
-            // 2. EL TRUCO DE LA MEDICIÓN FANTASMA (Evitar saltos visuales)
-            // Guardamos los textos actuales ("Esperando...")
             string txtUpdReal = lblValUpd.Text;
             string txtDrvReal = lblValDrv.Text;
 
-            // Ponemos los textos más largos posibles temporalmente
             lblValUpd.Text = "99 Importantes\n99 Opcionales";
             lblValDrv.Text = "Todos operativos";
 
-            // Calculamos cuánto ancho necesitan esas tarjetas para albergar esos textos largos
             int anchoIdealUpd = lblValUpd.Right + 15;
             int anchoIdealDrv = lblValDrv.Right + 15;
 
-            // Restauramos los textos originales ("Esperando...")
             lblValUpd.Text = txtUpdReal;
             lblValDrv.Text = txtDrvReal;
 
-            // 3. APLICAR LA CUADRÍCULA SIMÉTRICA Y ESTÁTICA
-            // Cogemos el mayor de los dos (o el ancho de diseño de 220px) para que sean idénticas
             int anchoTarjeta = Math.Max(220, Math.Max(anchoIdealUpd, anchoIdealDrv));
 
-            // Aplicamos los anchos fijos a la fila superior
             pnlCardUpd.Width = anchoTarjeta;
 
             int separacionCentros = 10;
             pnlCardDrv.Left = pnlCardUpd.Right + separacionCentros;
             pnlCardDrv.Width = anchoTarjeta;
 
-            // 4. IGUALAR EL ANCHO DE TODO EL BLOQUE DERECHO
             int anchoTotalDashboard = pnlCardDrv.Right - pnlCardUpd.Left;
 
             pnlCardTmp.Width = anchoTotalDashboard;
@@ -152,41 +134,34 @@ namespace CopicanariasServerReport
             rtbLog.Width = anchoTotalDashboard;
             btnAuto.Width = anchoTotalDashboard;
 
-            // Ajustar los discos por dentro
             flpDiscos.Width = anchoTotalDashboard - 30;
             foreach (Control ctrl in flpDiscos.Controls)
             {
                 ctrl.Width = flpDiscos.Width - 25;
             }
 
-            // 5. AUTO-AJUSTE ESTÁTICO DE VENTANA
             int margenDerechoVentana = 30;
             int nuevoAnchoVentana = Math.Max(820, pnlCardDrv.Right + margenDerechoVentana);
 
-            // Si la cuadrícula necesita más de 820px, la ventana se estira UNA SOLA VEZ al arrancar y se queda fija
             if (this.ClientSize.Width != nuevoAnchoVentana)
             {
                 this.ClientSize = new WinSize(nuevoAnchoVentana, this.ClientSize.Height);
-                // Anclamos el botón de log
                 btnToggleLog.Left = this.ClientSize.Width - btnToggleLog.Width - 30;
             }
         }
+
         private void AjustarPosicionesDF()
         {
-            // 1. Acomodamos la fila de Firmas
             lblFirmasRestantes.Left = chkFirmas.Right + 15;
             numFirmas.Left = lblFirmasRestantes.Right + 10;
 
-            // 2. Acomodamos la fila de Certificados
             lblNumCerts.Left = chkCertificados.Right + 15;
             numCertificados.Left = lblNumCerts.Right + 10;
 
-            // 3. Alineamos las dos cajitas de números (NumericUpDown)
             int columnaNumeros = Math.Max(lblFirmasRestantes.Right, lblNumCerts.Right) + 10;
             numFirmas.Left = columnaNumeros;
             numCertificados.Left = columnaNumeros;
 
-            // 4. Alineamos la nueva etiqueta de aviso a la derecha del todo
             if (_lblAvisoFirmas != null)
             {
                 _lblAvisoFirmas.Left = numFirmas.Right + 15;
@@ -200,39 +175,35 @@ namespace CopicanariasServerReport
             lblFirmasRestantes.Enabled = activo;
             numFirmas.Enabled = activo;
             if (!activo) numFirmas.Value = 0;
-
-            // Evaluamos el aviso al marcar/desmarcar
             ActualizarAvisoFirmas();
         }
 
-        // --- LÓGICA DE AVISO DE FIRMAS ---
         private void ActualizarAvisoFirmas()
         {
             if (_lblAvisoFirmas == null) return;
 
-            // Solo mostramos avisos si el check de firmas está marcado
             if (chkFirmas.Checked)
             {
                 if (numFirmas.Value == 0)
                 {
                     _lblAvisoFirmas.Text = "❌ No quedan firmas";
-                    _lblAvisoFirmas.ForeColor = WinColor.FromArgb(226, 30, 45); // Rojo (Crítico)
+                    _lblAvisoFirmas.ForeColor = WinColor.FromArgb(226, 30, 45);
                     _lblAvisoFirmas.Visible = true;
                 }
                 else if (numFirmas.Value <= 100)
                 {
                     _lblAvisoFirmas.Text = "⚠️ Quedan pocas firmas";
-                    _lblAvisoFirmas.ForeColor = WinColor.FromArgb(220, 100, 0); // Naranja (Aviso)
+                    _lblAvisoFirmas.ForeColor = WinColor.FromArgb(220, 100, 0);
                     _lblAvisoFirmas.Visible = true;
                 }
                 else
                 {
-                    _lblAvisoFirmas.Visible = false; // Más de 100 firmas: Todo OK, ocultamos la etiqueta
+                    _lblAvisoFirmas.Visible = false;
                 }
             }
             else
             {
-                _lblAvisoFirmas.Visible = false; // Si desmarcan el CheckBox, se oculta
+                _lblAvisoFirmas.Visible = false;
             }
         }
 
@@ -260,8 +231,6 @@ namespace CopicanariasServerReport
                 btnToggleLog.Text = "📊 Ver Dashboard";
                 btnToggleLog.BackColor = WinColor.FromArgb(17, 35, 108);
             }
-
-            // Recalcular porque el Log y el Dashboard podrían tener alturas distintas según el escalado
             RecalcularAltura();
         }
 
@@ -336,9 +305,7 @@ namespace CopicanariasServerReport
                     };
                     pnlDisco.Controls.Add(lblNombre);
 
-                   
                     int currentX = 25;
-                    
                     int badgeY = lblNombre.Bottom + 5;
 
                     Label lblStatus = CrearBadge(disco.Estado,
@@ -369,13 +336,9 @@ namespace CopicanariasServerReport
                         pnlDisco.Controls.Add(lblHealth);
                     }
 
-                    // EL PANEL CALCULA SU ALTURA MÁXIMA EN BASE A LAS ETIQUETAS
                     pnlDisco.Height = lblStatus.Bottom + 8;
-
                     pnlDisco.Paint += (s, e) => { e.Graphics.DrawLine(Pens.Gainsboro, 0, pnlDisco.Height - 1, pnlDisco.Width, pnlDisco.Height - 1); };
-
                     flpDiscos.Controls.Add(pnlDisco);
-
                 }
             }
             AjustarPosicionesDashboard();
@@ -393,7 +356,6 @@ namespace CopicanariasServerReport
                 Location = new Point(currentX, y),
                 Padding = new Padding(2)
             };
-
             currentX += badge.PreferredSize.Width + 5;
             return badge;
         }
@@ -401,7 +363,6 @@ namespace CopicanariasServerReport
         private void cmbTecnico_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (cmbTecnico.SelectedIndex <= 0) { MostrarPanelDf(false); return; }
-
             bool esDf = cmbTecnico.SelectedItem?.ToString().Contains("DF-Server") == true;
             MostrarPanelDf(esDf);
         }
@@ -413,13 +374,12 @@ namespace CopicanariasServerReport
             RecalcularAltura();
         }
 
-        // ═════════════════════════════════════════════════════════════
-        // CONTROL DE ALTURA DINÁMICO (DPI-Aware)
-        // ═════════════════════════════════════════════════════════════
         private void RecalcularAltura()
         {
-            // Encontramos el punto más bajo (sea el Log o la tarjeta de discos)
-            int contenidoBottom = rtbLog.Visible ? rtbLog.Bottom : pnlCardSmart.Bottom;
+            int fondoDerecho = rtbLog.Visible ? rtbLog.Bottom : pnlCardSmart.Bottom;
+            int fondoIzquierdo = btnDeviceManager.Bottom;
+
+            int contenidoBottom = Math.Max(fondoDerecho, fondoIzquierdo);
 
             int anchoActual = this.ClientSize.Width;
 
@@ -428,14 +388,11 @@ namespace CopicanariasServerReport
                 int yBotones = contenidoBottom + 15;
                 btnReport.Top = yBotones;
                 btnAuto.Top = yBotones;
-                // La ventana se abraza a los botones generados dinámicamente
                 this.ClientSize = new WinSize(anchoActual, btnReport.Bottom + 20);
                 return;
             }
 
-            // Calculamos la altura del Panel DF basándonos en si están visibles los certificados
             int alturaPanelDf = chkCertificados.Checked ? panelCertsDinamico.Bottom + 10 : chkCertificados.Bottom + 10;
-
             panelDF.Height = alturaPanelDf;
             panelDF.Top = contenidoBottom + 10;
 
@@ -466,7 +423,7 @@ namespace CopicanariasServerReport
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
-            if (resp != DialogResult.Yes) 
+            if (resp != DialogResult.Yes)
             {
                 chkDigitalizacion.CheckedChanged -= chkDigitalizacion_CheckedChanged;
                 chkDigitalizacion.Checked = false;
@@ -479,19 +436,14 @@ namespace CopicanariasServerReport
             lblNumCerts.Enabled = activo;
             numCertificados.Enabled = activo;
             panelCertsDinamico.Visible = activo;
-
             RebuildCertificadoFields(activo ? (int)numCertificados.Value : 0);
         }
 
         private void numCertificados_ValueChanged(object sender, EventArgs e)
         {
-            if (chkCertificados.Checked)
-                RebuildCertificadoFields((int)numCertificados.Value);
+            if (chkCertificados.Checked) RebuildCertificadoFields((int)numCertificados.Value);
         }
 
-        // ═════════════════════════════════════════════════════════════
-        // CERTIFICADOS DINÁMICOS Y RESISTENTES AL ESCALADO
-        // ═════════════════════════════════════════════════════════════
         private void RebuildCertificadoFields(int cantidad)
         {
             panelCertsDinamico.Controls.Clear();
@@ -503,52 +455,40 @@ namespace CopicanariasServerReport
                 return;
             }
 
-            int currentY = 10; // Inicio dinámico vertical
+            int currentY = 10;
 
             for (int i = 0; i < cantidad; i++)
             {
-                int currentX = 6; // Inicio dinámico horizontal de la fila
+                int currentX = 6;
 
-                // 1. Etiqueta del título
                 var lblN = new Label
                 {
                     Text = $"Certificado {i + 1}:",
                     Font = new Font("Segoe UI", 10f, FontStyle.Bold),
                     ForeColor = WinColor.FromArgb(17, 35, 108),
                     Location = new Point(currentX, currentY + 3),
-                    AutoSize = true // Nunca se cortará
+                    AutoSize = true
                 };
                 currentX += lblN.PreferredSize.Width + 10;
 
-                // 2. Caja de texto
                 var txtNombre = new TextBox
                 {
                     PlaceholderText = "Nombre del certificado *",
                     Font = new Font("Segoe UI", 11f),
                     Location = new Point(currentX, currentY),
                     Width = 230,
-                    // Como empieza vacío, arranca directamente con el fondo de alerta
                     BackColor = WinColor.FromArgb(255, 235, 235)
                 };
                 currentX += txtNombre.Width + 15;
 
-                // Evento en tiempo real para validar si está vacío o es muy corto
                 txtNombre.TextChanged += (s, ev) =>
                 {
-                    // Comprobamos si está vacío o si, quitando espacios, tiene menos de 10 caracteres
                     if (string.IsNullOrWhiteSpace(txtNombre.Text) || txtNombre.Text.Trim().Length < 10)
-                    {
-                        // Si no cumple, se queda con el fondo de alerta rojizo
                         txtNombre.BackColor = WinColor.FromArgb(255, 235, 235);
-                    }
                     else
-                    {
-                        // Si ya tiene 10 caracteres o más, se pone blanco
                         txtNombre.BackColor = WinColor.White;
-                    }
                 };
 
-                // 3. Etiqueta "Caduca:"
                 var lblF = new Label
                 {
                     Text = "Caduca:",
@@ -559,7 +499,6 @@ namespace CopicanariasServerReport
                 };
                 currentX += lblF.PreferredSize.Width + 10;
 
-                // 4. Calendario
                 var dtp = new DateTimePicker
                 {
                     Format = DateTimePickerFormat.Short,
@@ -570,7 +509,6 @@ namespace CopicanariasServerReport
                 };
                 currentX += dtp.Width + 15;
 
-                // 5. ETIQUETA DE ESTADO DINÁMICA
                 var lblEstadoCert = new Label
                 {
                     AutoSize = true,
@@ -578,45 +516,40 @@ namespace CopicanariasServerReport
                     Location = new Point(currentX, currentY + 3)
                 };
 
-                // Función interna para actualizar el texto y color
                 void ActualizarEstadoCert()
                 {
                     int dias = (dtp.Value.Date - DateTime.Today).Days;
                     if (dias < 0)
                     {
                         lblEstadoCert.Text = "❌ Caducado";
-                        lblEstadoCert.ForeColor = WinColor.FromArgb(226, 30, 45); // Rojo
+                        lblEstadoCert.ForeColor = WinColor.FromArgb(226, 30, 45);
                     }
-                    else if (dias <= 92) // 3 meses exactos
+                    else if (dias <= 92)
                     {
                         lblEstadoCert.Text = "⚠️ Caduca pronto";
-                        lblEstadoCert.ForeColor = WinColor.FromArgb(220, 100, 0); // Naranja
+                        lblEstadoCert.ForeColor = WinColor.FromArgb(220, 100, 0);
                     }
                     else
                     {
                         lblEstadoCert.Text = "✅ Válido";
-                        lblEstadoCert.ForeColor = WinColor.FromArgb(34, 197, 94); // Verde
+                        lblEstadoCert.ForeColor = WinColor.FromArgb(34, 197, 94);
                     }
                 }
 
-                // Escuchamos el ratón (ValueChanged) y el teclado (CloseUp y KeyUp) para máxima inmediatez
                 dtp.ValueChanged += (s, ev) => ActualizarEstadoCert();
-                dtp.CloseUp += (s, ev) => ActualizarEstadoCert(); // Cuando cierra el desplegable
-                dtp.KeyUp += (s, ev) => ActualizarEstadoCert();   // Si el técnico teclea la fecha a mano
+                dtp.CloseUp += (s, ev) => ActualizarEstadoCert();
+                dtp.KeyUp += (s, ev) => ActualizarEstadoCert();
 
-                ActualizarEstadoCert(); // Pintar estado inicial
+                ActualizarEstadoCert();
 
                 panelCertsDinamico.Controls.AddRange(new Control[] { lblN, txtNombre, lblF, dtp, lblEstadoCert });
                 _certControls.Add((txtNombre, dtp));
 
-                // Saltamos a la siguiente fila basándonos en el fondo del TextBox
                 currentY = txtNombre.Bottom + 12;
             }
 
-            // Calculamos la altura final del panel dinámico
             int maxH = 170;
             panelCertsDinamico.Height = Math.Min(currentY + 5, maxH);
-
             RecalcularAltura();
         }
 
@@ -650,11 +583,9 @@ namespace CopicanariasServerReport
             if (!_reporte.EsTecnicoDf) return true;
 
             var df = _reporte.DfServer;
-
-            int certIndex = 1; // Para identificar el número de certificado en el aviso
+            int certIndex = 1;
             foreach (var cert in df.Certificados)
             {
-                // 1. Validar nombre (no vacío y mínimo 10 caracteres)
                 if (string.IsNullOrWhiteSpace(cert.Nombre) || cert.Nombre.Length < 10)
                 {
                     MensajeModal.Show(
@@ -664,7 +595,7 @@ namespace CopicanariasServerReport
                         MessageBoxIcon.Warning);
 
                     Log($">>> Informe cancelado: nombre no válido o demasiado corto en el Certificado {certIndex}.\n");
-                    return false; // Bloquea la generación del PDF
+                    return false;
                 }
 
                 if (cert.ProximoACaducar)
@@ -687,7 +618,6 @@ namespace CopicanariasServerReport
                         MessageBoxButtons.YesNo,
                         caducado ? MessageBoxIcon.Error : MessageBoxIcon.Warning);
 
-                    // ARREGLO DE LA 'X': Si no pulsa "Sí", cancelamos.
                     if (resp != DialogResult.Yes)
                     {
                         string motivo = caducado
@@ -697,8 +627,7 @@ namespace CopicanariasServerReport
                         return false;
                     }
                 }
-
-                certIndex++; // Pasamos al siguiente certificado
+                certIndex++;
             }
 
             if (df.TieneFirmas && df.FirmasRestantes <= 100)
@@ -710,7 +639,6 @@ namespace CopicanariasServerReport
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning);
 
-                // ARREGLO DE LA 'X': Si no pulsa "Sí", cancelamos.
                 if (resp != DialogResult.Yes)
                 {
                     Log(">>> Informe cancelado: el cliente no ha sido avisado de las pocas firmas restantes.\n");
@@ -738,11 +666,20 @@ namespace CopicanariasServerReport
             if (linea.Contains("⚠️") || linea.Contains("🔁"))
             { Escribir(texto, ClrAviso, linea.TrimStart().StartsWith(">>>"), 10f); return; }
 
-            if (linea.Contains("⚡"))
+            if (linea.Contains("❌"))
+            { Escribir(texto, ClrError, linea.TrimStart().StartsWith(">>>"), 10f); return; }
+
+            if (linea.Contains("⚡") || linea.Contains("⬇️") || linea.Contains("⚙️") || linea.Contains("🔎") || linea.Contains("ℹ️"))
             { Escribir(texto, WinColor.FromArgb(197, 134, 192), true, 10f); return; }
 
             if (linea.Contains("sin acceso") || linea.Contains("No se pudo") || linea.Contains("ALERTA"))
             { Escribir(texto, ClrError, false, 10f); return; }
+
+            if (linea.Contains("🔴 IMPORTANTE"))
+            { Escribir(texto, WinColor.FromArgb(226, 30, 45), true, 10f); return; }
+
+            if (linea.Contains("🔵 OPCIONAL"))
+            { Escribir(texto, WinColor.FromArgb(86, 156, 214), true, 10f); return; }
 
             if (linea.TrimStart().StartsWith(">>>"))
             { Escribir(texto, ClrSeccion, true, 10f); return; }
@@ -804,12 +741,12 @@ namespace CopicanariasServerReport
             btnCleanTemp.Enabled = habilitado;
             btnSmart.Enabled = habilitado;
             btnUpdate.Enabled = habilitado;
+            btnInstalarUpdates.Enabled = habilitado;
             btnDrivers.Enabled = habilitado;
             btnAbrirUpdate.Enabled = habilitado;
             btnDeviceManager.Enabled = habilitado;
             btnReport.Enabled = habilitado;
             btnAuto.Enabled = habilitado;
-            panelDF.Enabled = habilitado;
         }
 
         private async Task EscaneoInicialAsync()
@@ -877,16 +814,55 @@ namespace CopicanariasServerReport
             SetBotonesHabilitados(false); await ProcesoUpdates(); SetBotonesHabilitados(true);
         }
 
+        private async void btnInstalarUpdates_Click(object sender, EventArgs e)
+        {
+            if (!TecnicoSeleccionado()) return;
+
+            // --- Comprobar si realmente hay algo que instalar ---
+            int totalUpdates = _reporte.UpdatesImportantes + _reporte.UpdatesOpcionales;
+
+            if (totalUpdates == 0)
+            {
+                MensajeModal.Show(
+                    "El sistema ya está al día. No hay actualizaciones pendientes para instalar.",
+                    "Todo actualizado",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            // --- Modal de confirmación anti-clics accidentales ---
+            var confirmacion = MensajeModal.Show(
+                $"Se van a descargar e instalar {totalUpdates} actualización(es) de Windows.\n\n¿Estás seguro de que deseas continuar?\nEste proceso se realizará de fondo y puede tardar varios minutos.",
+                "Confirmar instalación",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            // Si pulsa 'No' o cierra la ventana (X), abortamos
+            if (confirmacion != DialogResult.Yes)
+            {
+                Log(">>> Instalación de actualizaciones cancelada por el usuario.\n");
+                return;
+            }
+
+            // Si ha dicho que Sí, procedemos con el bloqueo de botones y la instalación
+            SetBotonesHabilitados(false);
+
+            LogBanner("INSTALANDO ACTUALIZACIONES", WinColor.FromArgb(50, 60, 100), WinColor.White);
+
+            await UpdateService.InstalarAsync(_reporte, Log);
+
+            Log("\n>>> Re-analizando el estado tras la instalación...\n");
+            await UpdateService.AnalizarAsync(_reporte, Log);
+
+            ActualizarDashboard();
+            SetBotonesHabilitados(true);
+        }
+
         private async void btnDrivers_Click(object sender, EventArgs e)
         {
             if (!TecnicoSeleccionado()) return;
             SetBotonesHabilitados(false); await ProcesoDrivers(); SetBotonesHabilitados(true);
-        }
-
-        private async void btnReport_Click(object sender, EventArgs e)
-        {
-            if (!TecnicoSeleccionado()) return;
-            SetBotonesHabilitados(false); await ProcesoPDF(); SetBotonesHabilitados(true);
         }
 
         private void btnAbrirUpdate_Click(object sender, EventArgs e) =>
@@ -929,19 +905,14 @@ namespace CopicanariasServerReport
             int archivosBorrados = 0;
             long bytesLiberados = 0;
 
-            // 1. Preparamos la lista de rutas base dinámicas
             var rutas = new List<(string Ruta, string Nombre)>();
-
-            // Le preguntamos a .NET dónde está la carpeta Windows (ej: C:\Windows o D:\Windows)
             string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
 
             rutas.Add((Path.Combine(winDir, "Temp"), "Temp de Windows"));
             rutas.Add((Path.Combine(winDir, @"SoftwareDistribution\Download"), "Caché de Windows Update"));
 
-            // 2. Buscar las carpetas Temp de TODOS los usuarios del equipo
             try
             {
-                // Extraemos la raíz del disco donde está Windows (ej: "C:\") y le sumamos "Users"
                 string sysDrive = Path.GetPathRoot(winDir);
                 string baseUsers = Path.Combine(sysDrive, "Users");
 
@@ -951,17 +922,14 @@ namespace CopicanariasServerReport
                     {
                         string nombreUser = new DirectoryInfo(dirUsuario).Name;
 
-                        // Saltamos carpetas de sistema que no son usuarios reales    // AQUI SE PUEDEN AÑADIR USUARIOS QUE NO QUERAMOS INCLUIR EN LA LIMPIEZA
                         if (nombreUser.Equals("Public", StringComparison.OrdinalIgnoreCase) ||
                             nombreUser.Equals("Default", StringComparison.OrdinalIgnoreCase) ||
                             nombreUser.Equals("Default User", StringComparison.OrdinalIgnoreCase) ||
                             nombreUser.Equals("All Users", StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        // Construimos la ruta hacia el AppData de ese usuario
                         string tempUserPath = Path.Combine(dirUsuario, @"AppData\Local\Temp");
 
-                        // Si la carpeta existe, la añadimos a la lista de limpieza
                         if (Directory.Exists(tempUserPath))
                         {
                             rutas.Add((tempUserPath, $"Temp de usuario ({nombreUser})"));
@@ -974,7 +942,6 @@ namespace CopicanariasServerReport
                 Log($"    · ⚠️ No se pudieron revisar los perfiles de usuario: {ex.Message}\n");
             }
 
-            // 3. Ejecutamos la limpieza sobre todas las rutas encontradas
             foreach (var (ruta, nombre) in rutas)
             {
                 int arch = 0; long bytes = 0;
@@ -987,7 +954,6 @@ namespace CopicanariasServerReport
                 archivosBorrados += arch;
                 bytesLiberados += bytes;
 
-                // Si se quiere obviar imprimir rutas con 0 archivos borrados, se puede cambiar la condición a "arch > 0". Sin embargo, se decidió mostrar también las rutas que no tenían archivos para confirmar que se han revisado.
                 if (arch >= 0 || nombre.Contains("Windows") || nombre.Contains("Caché"))
                 {
                     Log($"    · {nombre}: {arch} archivos — {bytes / 1048576.0:F1} MB\n");
@@ -1016,7 +982,7 @@ namespace CopicanariasServerReport
 
         private async Task ProcesoUpdates()
         {
-            LogBanner("ANÁLISIS DE WINDOWS UPDATE",
+            LogBanner("ANÁLISIS DE WINDOWS UPDATE ⏳",
                 WinColor.FromArgb(50, 60, 100), WinColor.White);
             await UpdateService.AnalizarAsync(_reporte, Log);
 
@@ -1025,7 +991,7 @@ namespace CopicanariasServerReport
 
         private async Task ProcesoDrivers()
         {
-            LogBanner("ANÁLISIS DE CONTROLADORES",
+            LogBanner("ANÁLISIS DE CONTROLADORES ⏳",
                 WinColor.FromArgb(50, 60, 100), WinColor.White);
 
             _reporte.Drivers.Clear();
@@ -1037,6 +1003,7 @@ namespace CopicanariasServerReport
             ActualizarDashboard();
         }
 
+        // ── Manejo de PDF con advertencia de actualizaciones ──────────────
         private async Task ProcesoPDF()
         {
             LogBanner("PREPARANDO INFORME PDF",
@@ -1047,6 +1014,42 @@ namespace CopicanariasServerReport
 
             LeerDatosDF();
             if (!ValidarCamposDf()) return;
+
+            // --- LÓGICA DE ACTUALIZACIONES ANTES DE GENERAR EL INFORME ---
+            int totalUpdates = _reporte.UpdatesImportantes + _reporte.UpdatesOpcionales;
+            bool restaurarUpdates = false;
+
+            // Hacemos una copia de seguridad real de los datos
+            int bkImportantes = _reporte.UpdatesImportantes;
+            int bkOpcionales = _reporte.UpdatesOpcionales;
+            bool bkReinicio = _reporte.RequiereReinicio;
+            List<string> bkNombres = new List<string>(_reporte.NombresUpdates);
+
+            if (totalUpdates > 0)
+            {
+                var resp = MensajeModal.Show(
+                    $"Hay {totalUpdates} actualizaciones de Windows pendientes.\n\n¿Quieres que se reflejen en el informe?",
+                    "Actualizaciones Pendientes",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (resp == DialogResult.Cancel)
+                {
+                    Log(">>> Generación de PDF cancelada por el usuario.\n");
+                    return;
+                }
+                else if (resp == DialogResult.No)
+                {
+                    // Falseamos los datos temporalmente para que el PDF salga limpio
+                    _reporte.UpdatesImportantes = 0;
+                    _reporte.UpdatesOpcionales = 0;
+                    _reporte.NombresUpdates.Clear();
+                    _reporte.RequiereReinicio = false;
+                    restaurarUpdates = true;
+                    Log("    · Nota: Se omitirán las actualizaciones pendientes en el PDF a petición del usuario.\n");
+                }
+            }
+            // ----------------------------------------------------------------
 
             if (_reporte.Discos.Count == 0)
                 await ProcesoSmart();
@@ -1065,6 +1068,15 @@ namespace CopicanariasServerReport
             if (sfd.ShowDialog() != DialogResult.OK)
             {
                 Log(">>> Generación de PDF cancelada.\n");
+
+                // Si se cancela el explorador de archivos, le devolvemos sus actualizaciones a la interfaz
+                if (restaurarUpdates)
+                {
+                    _reporte.UpdatesImportantes = bkImportantes;
+                    _reporte.UpdatesOpcionales = bkOpcionales;
+                    _reporte.RequiereReinicio = bkReinicio;
+                    _reporte.NombresUpdates = bkNombres;
+                }
                 return;
             }
 
@@ -1089,7 +1101,7 @@ namespace CopicanariasServerReport
                         bmpDf.Save(msDf, System.Drawing.Imaging.ImageFormat.Png);
                         dfLogoBytes = msDf.ToArray();
                     }
-                    catch { /* Si el recurso no existe, el logo simplemente no aparece */ }
+                    catch { }
                 }
 
                 await Task.Run(() => PdfGenerator.Generar(rutaArchivo, _reporte, logoBytes, dfLogoBytes));
@@ -1105,6 +1117,23 @@ namespace CopicanariasServerReport
                 Log($"      Causa: {ex.Message}\n");
                 Log("      Comprueba que la ruta es accesible y el archivo no está abierto.\n");
             }
+            finally
+            {
+                // Ocurra lo que ocurra, restauramos los datos originales para no romper el dashboard visual
+                if (restaurarUpdates)
+                {
+                    _reporte.UpdatesImportantes = bkImportantes;
+                    _reporte.UpdatesOpcionales = bkOpcionales;
+                    _reporte.RequiereReinicio = bkReinicio;
+                    _reporte.NombresUpdates = bkNombres;
+                }
+            }
+        }
+
+        private async void btnReport_Click(object sender, EventArgs e)
+        {
+            if (!TecnicoSeleccionado()) return;
+            SetBotonesHabilitados(false); await ProcesoPDF(); SetBotonesHabilitados(true);
         }
     }
 }

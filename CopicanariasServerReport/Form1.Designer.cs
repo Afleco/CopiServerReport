@@ -24,6 +24,7 @@
             btnCleanTemp = new BotonModerno();
             btnSmart = new BotonModerno();
             btnUpdate = new BotonModerno();
+            btnInstalarUpdates = new BotonModerno();
             btnAbrirUpdate = new BotonModerno();
             btnDrivers = new BotonModerno();
             btnDeviceManager = new BotonModerno();
@@ -181,6 +182,20 @@
             btnUpdate.UseVisualStyleBackColor = false;
             btnUpdate.Click += btnUpdate_Click;
             // 
+            // btnInstalarUpdates
+            // 
+            btnInstalarUpdates.BackColor = Color.FromArgb(34, 197, 94);
+            btnInstalarUpdates.FlatStyle = FlatStyle.Flat;
+            btnInstalarUpdates.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnInstalarUpdates.ForeColor = Color.White;
+            btnInstalarUpdates.Location = new Point(30, 351);
+            btnInstalarUpdates.Name = "btnInstalarUpdates";
+            btnInstalarUpdates.Size = new Size(300, 40);
+            btnInstalarUpdates.TabIndex = 17;
+            btnInstalarUpdates.Text = "📥 Instalar Actualizaciones 📥";
+            btnInstalarUpdates.UseVisualStyleBackColor = false;
+            btnInstalarUpdates.Click += btnInstalarUpdates_Click;
+            // 
             // btnAbrirUpdate
             // 
             btnAbrirUpdate.BackColor = Color.White;
@@ -188,7 +203,7 @@
             btnAbrirUpdate.FlatStyle = FlatStyle.Flat;
             btnAbrirUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnAbrirUpdate.ForeColor = Color.FromArgb(17, 35, 108);
-            btnAbrirUpdate.Location = new Point(30, 351);
+            btnAbrirUpdate.Location = new Point(30, 397);
             btnAbrirUpdate.Name = "btnAbrirUpdate";
             btnAbrirUpdate.Size = new Size(300, 35);
             btnAbrirUpdate.TabIndex = 7;
@@ -202,7 +217,7 @@
             btnDrivers.FlatStyle = FlatStyle.Flat;
             btnDrivers.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnDrivers.ForeColor = Color.White;
-            btnDrivers.Location = new Point(30, 405);
+            btnDrivers.Location = new Point(30, 451);
             btnDrivers.Name = "btnDrivers";
             btnDrivers.Size = new Size(300, 40);
             btnDrivers.TabIndex = 6;
@@ -217,7 +232,7 @@
             btnDeviceManager.FlatStyle = FlatStyle.Flat;
             btnDeviceManager.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             btnDeviceManager.ForeColor = Color.FromArgb(17, 35, 108);
-            btnDeviceManager.Location = new Point(30, 451);
+            btnDeviceManager.Location = new Point(30, 497);
             btnDeviceManager.Name = "btnDeviceManager";
             btnDeviceManager.Size = new Size(300, 35);
             btnDeviceManager.TabIndex = 5;
@@ -231,7 +246,7 @@
             btnReport.FlatStyle = FlatStyle.Flat;
             btnReport.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnReport.ForeColor = Color.White;
-            btnReport.Location = new Point(30, 510);
+            btnReport.Location = new Point(30, 556);
             btnReport.Name = "btnReport";
             btnReport.Size = new Size(300, 50);
             btnReport.TabIndex = 12;
@@ -245,7 +260,7 @@
             btnAuto.FlatStyle = FlatStyle.Flat;
             btnAuto.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnAuto.ForeColor = Color.White;
-            btnAuto.Location = new Point(350, 510);
+            btnAuto.Location = new Point(350, 556);
             btnAuto.Name = "btnAuto";
             btnAuto.Size = new Size(440, 50);
             btnAuto.TabIndex = 10;
@@ -261,7 +276,7 @@
             rtbLog.ForeColor = Color.FromArgb(212, 212, 212);
             rtbLog.Location = new Point(350, 115);
             rtbLog.Name = "rtbLog";
-            rtbLog.Size = new Size(440, 380);
+            rtbLog.Size = new Size(440, 417);
             rtbLog.TabIndex = 11;
             rtbLog.Text = "";
             rtbLog.Visible = false;
@@ -280,7 +295,7 @@
             panelDF.Controls.Add(lblNumCerts);
             panelDF.Controls.Add(numCertificados);
             panelDF.Controls.Add(panelCertsDinamico);
-            panelDF.Location = new Point(30, 580);
+            panelDF.Location = new Point(30, 626);
             panelDF.Name = "panelDF";
             panelDF.Size = new Size(760, 122);
             panelDF.TabIndex = 4;
@@ -547,7 +562,7 @@
             pnlCardSmart.Controls.Add(flpDiscos);
             pnlCardSmart.Location = new Point(350, 305);
             pnlCardSmart.Name = "pnlCardSmart";
-            pnlCardSmart.Size = new Size(440, 190);
+            pnlCardSmart.Size = new Size(440, 227);
             pnlCardSmart.TabIndex = 3;
             // 
             // lblIconSmart
@@ -589,7 +604,7 @@
             flpDiscos.BackColor = Color.FromArgb(250, 250, 250);
             flpDiscos.Location = new Point(15, 70);
             flpDiscos.Name = "flpDiscos";
-            flpDiscos.Size = new Size(410, 115);
+            flpDiscos.Size = new Size(410, 142);
             flpDiscos.TabIndex = 3;
             // 
             // Form1
@@ -597,7 +612,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(240, 242, 245);
-            ClientSize = new Size(820, 720);
+            ClientSize = new Size(820, 770);
             Controls.Add(pnlCardUpd);
             Controls.Add(pnlCardDrv);
             Controls.Add(pnlCardTmp);
@@ -606,6 +621,7 @@
             Controls.Add(btnDeviceManager);
             Controls.Add(btnDrivers);
             Controls.Add(btnAbrirUpdate);
+            Controls.Add(btnInstalarUpdates);
             Controls.Add(cmbTecnico);
             Controls.Add(lblTecnico);
             Controls.Add(btnAuto);
@@ -653,6 +669,7 @@
         private BotonModerno btnCleanTemp;
         private BotonModerno btnSmart;
         private BotonModerno btnUpdate;
+        private BotonModerno btnInstalarUpdates;
         private BotonModerno btnAbrirUpdate;
         private BotonModerno btnReport;
         private RichTextBox rtbLog;

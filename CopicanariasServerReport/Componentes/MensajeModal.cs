@@ -59,7 +59,7 @@ namespace CopicanariasServerReport.Componentes
                 // 3. Panel de botones
                 Panel panelBotones = new Panel();
                 panelBotones.BackColor = Color.FromArgb(240, 240, 240);
-                panelBotones.Height = 65; // Un poco más alto para que respiren los botones
+                panelBotones.Height = 65;
                 panelBotones.Dock = DockStyle.Bottom;
                 form.Controls.Add(panelBotones);
 
@@ -71,18 +71,18 @@ namespace CopicanariasServerReport.Componentes
                 if (botones == MessageBoxButtons.YesNo)
                 {
                     BotonModerno btnNo = CrearBoton("No", DialogResult.No, Color.FromArgb(226, 30, 45));
-                    // Lo anclamos a la derecha
                     btnNo.Top = 15;
                     btnNo.Left = panelBotones.Width - btnNo.Width - 20;
 
                     BotonModerno btnYes = CrearBoton("Sí", DialogResult.Yes, Color.FromArgb(17, 35, 108));
-                    // Lo anclamos exactamente a la izquierda del botón "No"
                     btnYes.Top = 15;
                     btnYes.Left = btnNo.Left - btnYes.Width - 15;
 
                     panelBotones.Controls.Add(btnNo);
                     panelBotones.Controls.Add(btnYes);
-                    form.CancelButton = btnNo;
+
+                    // Nota: Ya no asignamos form.CancelButton = btnNo; 
+                    // Esto permite que si el usuario pulsa la "X" de la ventana, devuelva DialogResult.Cancel nativo.
                     form.AcceptButton = btnYes;
                 }
                 else
@@ -99,7 +99,6 @@ namespace CopicanariasServerReport.Componentes
             }
         }
 
-        // Helper sin posición X, porque ahora la calculamos arriba
         private static BotonModerno CrearBoton(string texto, DialogResult resultado, Color colorFondo)
         {
             BotonModerno btn = new BotonModerno();

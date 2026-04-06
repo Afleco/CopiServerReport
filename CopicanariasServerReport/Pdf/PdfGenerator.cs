@@ -423,7 +423,7 @@ namespace CopicanariasServerReport.Pdf
                             var df = r.DfServer;
 
                             // Cabecera de sección con fondo azul DF 
-                            col.Item().PaddingTop(10).Background(Colors.Blue.Darken3)
+                            col.Item().PaddingTop(10).Background("#f69511")
                                 .Padding(5).Row(row =>
                                 {
                                     row.RelativeItem().AlignMiddle()
