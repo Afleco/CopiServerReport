@@ -28,6 +28,7 @@ namespace CopicanariasServerReport
         public Form1()
         {
             InitializeComponent();
+            this.DoubleBuffered = true;
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("CopicanariasServerReport/1.0");
         }
 
@@ -46,7 +47,7 @@ namespace CopicanariasServerReport
             rtbLog.ForeColor = ClrTexto;
             rtbLog.Clear();
 
-            // AQUÍ SE PUEDEN AÑADIR TÉCNICOS (SI ESTE ES DE DF-SERVER SU NOMBRE DEBE TENER "DF-SERVER")
+            // AQUÍ SE PUEDEN AÑADIR TÉCNICOS (SI ESTE ES DE DF-SERVER SU NOMBRE DEBE TENER "(DF-SERVER)")
             cmbTecnico.Items.Add("— Seleccione un técnico —");
             cmbTecnico.Items.Add("Alejandro Martel");
             cmbTecnico.Items.Add("Himar Bautista");
@@ -143,7 +144,7 @@ namespace CopicanariasServerReport
             int margenDerechoVentana = 30;
             int nuevoAnchoVentana = Math.Max(820, pnlCardDrv.Right + margenDerechoVentana);
 
-            if (this.ClientSize.Width != nuevoAnchoVentana)
+            if (this.WindowState != FormWindowState.Minimized && this.ClientSize.Width != nuevoAnchoVentana)
             {
                 this.ClientSize = new WinSize(nuevoAnchoVentana, this.ClientSize.Height);
                 btnToggleLog.Left = this.ClientSize.Width - btnToggleLog.Width - 30;
@@ -376,6 +377,8 @@ namespace CopicanariasServerReport
 
         private void RecalcularAltura()
         {
+            if (this.WindowState == FormWindowState.Minimized) return;
+
             int fondoDerecho = rtbLog.Visible ? rtbLog.Bottom : pnlCardSmart.Bottom;
             int fondoIzquierdo = btnDeviceManager.Bottom;
 
@@ -653,7 +656,7 @@ namespace CopicanariasServerReport
         {
             if (rtbLog.InvokeRequired)
             {
-                rtbLog.Invoke(new Action(() => Log(texto)));
+                rtbLog.BeginInvoke(new Action(() => Log(texto)));
                 return;
             }
 
@@ -719,7 +722,7 @@ namespace CopicanariasServerReport
         {
             if (rtbLog.InvokeRequired)
             {
-                rtbLog.Invoke(new Action(() => Escribir(texto, color, bold, size)));
+                rtbLog.BeginInvoke(new Action(() => Escribir(texto, color, bold, size)));
                 return;
             }
 
@@ -798,26 +801,21 @@ namespace CopicanariasServerReport
 
         private async void btnCleanTemp_Click(object sender, EventArgs e)
         {
-            if (!TecnicoSeleccionado()) return;
             SetBotonesHabilitados(false); await ProcesoLimpieza(); SetBotonesHabilitados(true);
         }
 
         private async void btnSmart_Click(object sender, EventArgs e)
         {
-            if (!TecnicoSeleccionado()) return;
             SetBotonesHabilitados(false); await ProcesoSmart(); SetBotonesHabilitados(true);
         }
 
         private async void btnUpdate_Click(object sender, EventArgs e)
         {
-            if (!TecnicoSeleccionado()) return;
             SetBotonesHabilitados(false); await ProcesoUpdates(); SetBotonesHabilitados(true);
         }
 
         private async void btnInstalarUpdates_Click(object sender, EventArgs e)
         {
-            if (!TecnicoSeleccionado()) return;
-
             // --- Comprobar si realmente hay algo que instalar ---
             int totalUpdates = _reporte.UpdatesImportantes + _reporte.UpdatesOpcionales;
 
@@ -861,7 +859,6 @@ namespace CopicanariasServerReport
 
         private async void btnDrivers_Click(object sender, EventArgs e)
         {
-            if (!TecnicoSeleccionado()) return;
             SetBotonesHabilitados(false); await ProcesoDrivers(); SetBotonesHabilitados(true);
         }
 

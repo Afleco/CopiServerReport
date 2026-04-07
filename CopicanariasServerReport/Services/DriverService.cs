@@ -129,6 +129,7 @@ namespace CopicanariasServerReport.Services
             41 => "Windows no pudo cargar el driver",
             43 => "El dispositivo reportó un error (código 43)",
             45 => "Dispositivo no conectado actualmente",
+            47 => "Preparado para extracción segura (Desconéctelo físicamente)",
             48 => "Bloqueado por políticas del sistema",
             52 => "Problema con la firma digital del driver",
             _ => $"Error desconocido (código {codigo})"
