@@ -103,7 +103,12 @@ namespace CopicanariasServerReport.Services
             {
                 log(">>> ⚠️  No se pudo analizar Windows Update.\n");
                 log($"    Causa: {errorCapturado.Message}\n");
-                log("    Asegúrate de ejecutar la aplicación como administrador.\n");
+
+                // Si es el error de la foto, damos una pista real
+                if (errorCapturado.Message.Contains("0x80240438"))
+                {
+                    log("    El servicio de Windows Update está ocupado o reiniciándose. Reintenta en unos segundos.\n");
+                }
             }
         }
 

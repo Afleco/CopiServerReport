@@ -851,6 +851,9 @@ namespace CopicanariasServerReport
 
             await UpdateService.InstalarAsync(_reporte, Log);
 
+            // ---> AÑADIMOS UN RESPIRO DE 3 SEGUNDOS PARA QUE EL SERVICIO SE ESTABILICE <---
+            await Task.Delay(3000);
+
             Log("\n>>> Re-analizando el estado tras la instalación...\n");
             await UpdateService.AnalizarAsync(_reporte, Log);
 
