@@ -836,15 +836,16 @@ namespace CopicanariasServerReport
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
-            // Si pulsa 'No' o cierra la ventana (X), abortamos
             if (confirmacion != DialogResult.Yes)
             {
                 Log(">>> Instalación de actualizaciones cancelada por el usuario.\n");
                 return;
             }
 
-            // Si ha dicho que Sí, procedemos con el bloqueo de botones y la instalación
             SetBotonesHabilitados(false);
+
+            // Hacemos una copia exacta de la lista de nombres de las actualizaciones pendientes
+            var actualizacionesPrevias = new List<string>(_reporte.NombresUpdates);
 
             LogBanner("INSTALANDO ACTUALIZACIONES", WinColor.FromArgb(50, 60, 100), WinColor.White);
 
@@ -852,6 +853,21 @@ namespace CopicanariasServerReport
 
             Log("\n>>> Re-analizando el estado tras la instalación...\n");
             await UpdateService.AnalizarAsync(_reporte, Log);
+
+            // Si después de instalar, Windows pide reiniciar Y AÚN quedan actualizaciones pendientes...
+            if (_reporte.RequiereReinicio && _reporte.NombresUpdates.Count > 0)
+            {
+                // Comparamos a ver si alguna de las que quedan ahora ya estaba en la lista del principio
+                bool hayAtascadas = _reporte.NombresUpdates.Any(upd => actualizacionesPrevias.Contains(upd));
+
+                if (hayAtascadas)
+                {
+                    Log(">>> ⚠️ AVISO DE INSTALACIÓN PARCIAL:\n");
+                    Log("    · Algunas actualizaciones no se han podido instalar.\n");
+                    Log("    · Puede ser que Windows haya bloqueado la instalación porque exige un reinicio previo del servidor.\n");
+                    Log("    · Por favor, reinicia el equipo y vuelve a ejecutar la herramienta para instalar las restantes.\n\n");
+                }
+            }
 
             ActualizarDashboard();
             SetBotonesHabilitados(true);
