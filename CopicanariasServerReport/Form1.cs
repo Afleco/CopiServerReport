@@ -1038,11 +1038,32 @@ namespace CopicanariasServerReport
             bool bkReinicio = _reporte.RequiereReinicio;
             List<string> bkNombres = new List<string>(_reporte.NombresUpdates);
 
-            if (totalUpdates > 0)
+            // evaluamos tanto si hay actualizaciones como si hay un reinicio pendiente
+            if (totalUpdates > 0 || _reporte.RequiereReinicio)
             {
+                string mensajeModal = "";
+                string tituloModal = "";
+
+                // Preparamos un mensaje dinámico según lo que pase en el equipo
+                if (totalUpdates > 0 && _reporte.RequiereReinicio)
+                {
+                    mensajeModal = $"Hay {totalUpdates} actualización(es) pendiente(s) y el servidor requiere un REINICIO obligatorio.\n\n¿Quieres que estas alertas se reflejen en el informe PDF?";
+                    tituloModal = "Actualizaciones y Reinicio Pendientes";
+                }
+                else if (totalUpdates > 0)
+                {
+                    mensajeModal = $"Hay {totalUpdates} actualización(es) de Windows pendiente(s).\n\n¿Quieres que se reflejen en el informe PDF?";
+                    tituloModal = "Actualizaciones Pendientes";
+                }
+                else // Solo hay reinicio pendiente (0 actualizaciones)
+                {
+                    mensajeModal = $"El sistema requiere un REINICIO para aplicar cambios previos.\n\n¿Quieres que este aviso de reinicio se refleje en el informe PDF?";
+                    tituloModal = "Reinicio Pendiente";
+                }
+
                 var resp = MensajeModal.Show(
-                    $"Hay {totalUpdates} actualizaciones de Windows pendientes.\n\n¿Quieres que se reflejen en el informe?",
-                    "Actualizaciones Pendientes",
+                    mensajeModal,
+                    tituloModal,
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
@@ -1053,13 +1074,13 @@ namespace CopicanariasServerReport
                 }
                 else if (resp == DialogResult.No)
                 {
-                    // Falseamos los datos temporalmente para que el PDF salga limpio
+                    // Falseamos los datos temporalmente para que el PDF salga limpio en todas las situaciones
                     _reporte.UpdatesImportantes = 0;
                     _reporte.UpdatesOpcionales = 0;
                     _reporte.NombresUpdates.Clear();
-                    _reporte.RequiereReinicio = false;
+                    _reporte.RequiereReinicio = false; 
                     restaurarUpdates = true;
-                    Log("    · Nota: Se omitirán las actualizaciones pendientes en el PDF a petición del usuario.\n");
+                    Log("    · Nota: Se omitirán las alertas de Windows Update en el PDF a petición del usuario.\n");
                 }
             }
             // ----------------------------------------------------------------
