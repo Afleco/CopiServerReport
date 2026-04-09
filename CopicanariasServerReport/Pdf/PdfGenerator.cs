@@ -557,9 +557,6 @@ namespace CopicanariasServerReport.Pdf
         }
 
         // ── Helper para Marca de Agua ─────────────────────────────────
-
-        // ── Helper para Marca de Agua ─────────────────────────────────
-
         private static byte[] HacerImagenTransparente(byte[] imageBytes, float opacidad)
         {
             using (var msIn = new MemoryStream(imageBytes))
