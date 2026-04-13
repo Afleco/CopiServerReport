@@ -439,6 +439,7 @@ namespace CopicanariasServerReport
             lblNumCerts.Enabled = activo;
             numCertificados.Enabled = activo;
             panelCertsDinamico.Visible = activo;
+            if (!activo) numCertificados.Value = 1;
             RebuildCertificadoFields(activo ? (int)numCertificados.Value : 0);
         }
 
