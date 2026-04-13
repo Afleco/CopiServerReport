@@ -364,7 +364,7 @@ namespace CopicanariasServerReport
         private void cmbTecnico_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (cmbTecnico.SelectedIndex <= 0) { MostrarPanelDf(false); return; }
-            bool esDf = cmbTecnico.SelectedItem?.ToString().Contains("DF-Server") == true;
+            bool esDf = cmbTecnico.SelectedItem?.ToString().Contains("(DF-Server)") == true;
             MostrarPanelDf(esDf);
         }
 
