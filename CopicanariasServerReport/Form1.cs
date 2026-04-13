@@ -746,8 +746,10 @@ namespace CopicanariasServerReport
             btnUpdate.Enabled = habilitado;
             btnInstalarUpdates.Enabled = habilitado;
             btnDrivers.Enabled = habilitado;
-            btnAbrirUpdate.Enabled = habilitado;
-            btnDeviceManager.Enabled = habilitado;
+
+            btnAbrirUpdate.Enabled = true;
+            btnDeviceManager.Enabled = true;
+
             btnReport.Enabled = habilitado;
             btnAuto.Enabled = habilitado;
         }
@@ -1022,8 +1024,7 @@ namespace CopicanariasServerReport
         // ── Manejo de PDF con advertencia de actualizaciones ──────────────
         private async Task ProcesoPDF()
         {
-            LogBanner("PREPARANDO INFORME PDF",
-                WinColor.FromArgb(50, 60, 100), WinColor.White);
+            LogBanner("PREPARANDO INFORME PDF", WinColor.FromArgb(50, 60, 100), WinColor.White);
 
             if (cmbTecnico?.SelectedItem != null)
                 _reporte.TecnicoResponsable = cmbTecnico.SelectedItem.ToString();
@@ -1031,65 +1032,74 @@ namespace CopicanariasServerReport
             LeerDatosDF();
             if (!ValidarCamposDf()) return;
 
-            // --- LÓGICA DE ACTUALIZACIONES ANTES DE GENERAR EL INFORME ---
-            int totalUpdates = _reporte.UpdatesImportantes + _reporte.UpdatesOpcionales;
+            // --- LÓGICA DE BACKUP Y RESTAURACIÓN ---
             bool restaurarUpdates = false;
-
-            // Hacemos una copia de seguridad real de los datos
             int bkImportantes = _reporte.UpdatesImportantes;
             int bkOpcionales = _reporte.UpdatesOpcionales;
             bool bkReinicio = _reporte.RequiereReinicio;
             List<string> bkNombres = new List<string>(_reporte.NombresUpdates);
 
-            // evaluamos tanto si hay actualizaciones como si hay un reinicio pendiente
+            bool restaurarDrivers = false;
+            List<DriverInfo> bkDrivers = new List<DriverInfo>(_reporte.Drivers);
+
+            // --- GESTIÓN DE ALERTAS DE WINDOWS UPDATE ---
+            int totalUpdates = _reporte.UpdatesImportantes + _reporte.UpdatesOpcionales;
             if (totalUpdates > 0 || _reporte.RequiereReinicio)
             {
-                string mensajeModal = "";
-                string tituloModal = "";
+                string mensaje = totalUpdates > 0 && _reporte.RequiereReinicio
+                    ? $"Hay {totalUpdates} actualización(es) y un REINICIO pendiente."
+                    : totalUpdates > 0 ? $"Hay {totalUpdates} actualización(es) pendiente(s)." : "Hay un REINICIO pendiente.";
 
-                // Preparamos un mensaje dinámico según lo que pase en el equipo
-                if (totalUpdates > 0 && _reporte.RequiereReinicio)
-                {
-                    mensajeModal = $"Hay {totalUpdates} actualización(es) pendiente(s) y el servidor requiere un REINICIO obligatorio.\n\n¿Quieres que estas alertas se reflejen en el informe PDF?";
-                    tituloModal = "Actualizaciones y Reinicio Pendientes";
-                }
-                else if (totalUpdates > 0)
-                {
-                    mensajeModal = $"Hay {totalUpdates} actualización(es) de Windows pendiente(s).\n\n¿Quieres que se reflejen en el informe PDF?";
-                    tituloModal = "Actualizaciones Pendientes";
-                }
-                else // Solo hay reinicio pendiente (0 actualizaciones)
-                {
-                    mensajeModal = $"El sistema requiere un REINICIO para aplicar cambios previos.\n\n¿Quieres que este aviso de reinicio se refleje en el informe PDF?";
-                    tituloModal = "Reinicio Pendiente";
-                }
-
-                var resp = MensajeModal.Show(
-                    mensajeModal,
-                    tituloModal,
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
+                var resp = MensajeModal.Show($"{mensaje}\n\n¿Quieres que estas alertas se reflejen en el informe PDF?",
+                    "Windows Update Pendiente", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
                 if (resp == DialogResult.Cancel)
                 {
                     Log(">>> Generación de PDF cancelada por el usuario.\n");
                     return;
                 }
-                else if (resp == DialogResult.No)
+
+                if (resp == DialogResult.No)
                 {
-                    // Falseamos los datos temporalmente para que el PDF salga limpio en todas las situaciones
-                    _reporte.UpdatesImportantes = 0;
-                    _reporte.UpdatesOpcionales = 0;
-                    _reporte.NombresUpdates.Clear();
-                    _reporte.RequiereReinicio = false; 
+                    _reporte.UpdatesImportantes = 0; _reporte.UpdatesOpcionales = 0;
+                    _reporte.NombresUpdates.Clear(); _reporte.RequiereReinicio = false;
                     restaurarUpdates = true;
-                    Log("    · Nota: Se omitirán las alertas de Windows Update en el PDF a petición del usuario.\n");
+                    Log("    · Nota: Se omitirán las alertas de Windows Update en el PDF.\n");
                 }
             }
-            // ----------------------------------------------------------------
 
-            if (_reporte.Discos.Count == 0)
-                await ProcesoSmart();
+            // --- GESTIÓN DE ALERTAS DE DRIVERS ---
+            if (_reporte.Drivers.Count > 0)
+            {
+                string mensajeDrivers = _reporte.Drivers.Count == 1
+                    ? "Hay 1 controlador con error."
+                    : $"Hay {_reporte.Drivers.Count} controladores con errores.";
+
+                var resp = MensajeModal.Show(
+                    $"{mensajeDrivers}\n\n¿Quieres que estos errores aparezcan en el informe PDF?",
+                    "Controladores con errores", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                if (resp == DialogResult.Cancel)
+                {
+                    if (restaurarUpdates)
+                    {
+                        _reporte.UpdatesImportantes = bkImportantes; _reporte.UpdatesOpcionales = bkOpcionales;
+                        _reporte.RequiereReinicio = bkReinicio; _reporte.NombresUpdates = bkNombres;
+                    }
+                    Log(">>> Generación de PDF cancelada por el usuario.\n");
+                    return;
+                }
+
+                if (resp == DialogResult.No)
+                {
+                    _reporte.Drivers.Clear();
+                    restaurarDrivers = true;
+                    Log("    · Nota: Se omitirán los errores de controladores en el PDF.\n");
+                }
+            }
+
+            // --- PROCESO DE GENERACIÓN ---
+            if (_reporte.Discos.Count == 0) await ProcesoSmart();
 
             Log(">>> Recopilando telemetría del sistema...\n");
             await Task.Run(() => TelemetriaService.RecopilarTelemetria(_reporte, Log));
@@ -1099,72 +1109,51 @@ namespace CopicanariasServerReport
             {
                 Filter = "Archivos PDF (*.pdf)|*.pdf",
                 Title = "Guardar Informe de Mantenimiento",
-                FileName = $"Informe_Sistema_{DateTime.Now:dd_MM_yyyy_HHmm}"
+                FileName = $"Informe_Sistema_{DateTime.Now:dd_MM_yyyy}_{_reporte.NombreServidor}"
             };
 
-            if (sfd.ShowDialog() != DialogResult.OK)
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                string rutaArchivo = sfd.FileName;
+                try
+                {
+                    byte[] logoBytes = ImagenToBytes(Properties.Resources.copicanariasicon);
+                    byte[] dfLogoBytes = _reporte.EsTecnicoDf ? ImagenToBytes(Properties.Resources.DF_SERVER_logo_300x60) : null;
+
+                    await Task.Run(() => PdfGenerator.Generar(rutaArchivo, _reporte, logoBytes, dfLogoBytes));
+
+                    Log($">>> ✅ PDF guardado en: {rutaArchivo}\n");
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = rutaArchivo, UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    Log($">>> ❌ Error al generar PDF: {ex.Message}\n");
+                }
+            }
+            else
             {
                 Log(">>> Generación de PDF cancelada.\n");
-
-                // Si se cancela el explorador de archivos, le devolvemos sus actualizaciones a la interfaz
-                if (restaurarUpdates)
-                {
-                    _reporte.UpdatesImportantes = bkImportantes;
-                    _reporte.UpdatesOpcionales = bkOpcionales;
-                    _reporte.RequiereReinicio = bkReinicio;
-                    _reporte.NombresUpdates = bkNombres;
-                }
-                return;
             }
 
-            string rutaArchivo = sfd.FileName;
-            try
+            // --- RESTAURACIÓN DE DATOS PARA LA INTERFAZ ---
+            if (restaurarUpdates)
             {
-                byte[] logoBytes;
-                using (var bmp = Properties.Resources.copicanariasicon)
-                using (var ms = new MemoryStream())
-                {
-                    bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                    logoBytes = ms.ToArray();
-                }
-
-                byte[] dfLogoBytes = null;
-                if (_reporte.EsTecnicoDf)
-                {
-                    try
-                    {
-                        using var bmpDf = Properties.Resources.DF_SERVER_logo_300x60;
-                        using var msDf = new MemoryStream();
-                        bmpDf.Save(msDf, System.Drawing.Imaging.ImageFormat.Png);
-                        dfLogoBytes = msDf.ToArray();
-                    }
-                    catch { }
-                }
-
-                await Task.Run(() => PdfGenerator.Generar(rutaArchivo, _reporte, logoBytes, dfLogoBytes));
-
-                Log($">>> ✅ PDF guardado en: {rutaArchivo}\n");
-                System.Diagnostics.Process.Start(
-                    new System.Diagnostics.ProcessStartInfo
-                    { FileName = rutaArchivo, UseShellExecute = true });
+                _reporte.UpdatesImportantes = bkImportantes; _reporte.UpdatesOpcionales = bkOpcionales;
+                _reporte.RequiereReinicio = bkReinicio; _reporte.NombresUpdates = bkNombres;
             }
-            catch (Exception ex)
+            if (restaurarDrivers)
             {
-                Log(">>> No se pudo generar el PDF.\n");
-                Log($"      Causa: {ex.Message}\n");
-                Log("      Comprueba que la ruta es accesible y el archivo no está abierto.\n");
+                _reporte.Drivers.AddRange(bkDrivers);
             }
-            finally
-            {
-                // Ocurra lo que ocurra, restauramos los datos originales para no romper el dashboard visual
-                if (restaurarUpdates)
-                {
-                    _reporte.UpdatesImportantes = bkImportantes;
-                    _reporte.UpdatesOpcionales = bkOpcionales;
-                    _reporte.RequiereReinicio = bkReinicio;
-                    _reporte.NombresUpdates = bkNombres;
-                }
-            }
+        }
+
+        // Helper rápido para limpiar el código de arriba
+        private byte[] ImagenToBytes(System.Drawing.Image img)
+        {
+            if (img == null) return null;
+            using var ms = new MemoryStream();
+            img.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+            return ms.ToArray();
         }
 
         private async void btnReport_Click(object sender, EventArgs e)

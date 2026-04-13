@@ -24,13 +24,16 @@ namespace CopicanariasServerReport.Services
 
             RecopilarRed(reporte);
             RecopilarUnidadesRed(reporte);
-            RecopilarDrivers(reporte);
 
             // Solo perdemos tiempo abriendo el cmd y buscando backups si es técnico DF
             if (reporte.EsTecnicoDf)
             {
                 RecopilarEstadoBackup(reporte);
                 log?.Invoke($"    · Backup Local: {reporte.EstadoBackup} (Última: {reporte.FechaUltimoBackup})\n");
+
+                
+                RecopilarVersionDfServer(reporte);
+                log?.Invoke($"    · DF-Server: Versión detectada {reporte.DfServer.VersionSoftware}\n");
             }
         }
 
@@ -358,12 +361,6 @@ namespace CopicanariasServerReport.Services
             catch { }
         }
 
-        private static void RecopilarDrivers(DatosServidor reporte)
-        {
-            reporte.Drivers.Clear();
-            reporte.Drivers.AddRange(DriverService.Escanear());
-        }
-
         // ── Estado de Backup de Windows ──────────────────────────────
         private static void RecopilarEstadoBackup(DatosServidor reporte)
         {
@@ -545,6 +542,104 @@ namespace CopicanariasServerReport.Services
             {
                 reporte.JavaVersionOnline = "No se pudo verificar (sin conexión o error de red)";
                 log?.Invoke("    · Java: No se pudo consultar versión online.\n");
+            }
+        }
+
+        // ── Detección de la versión de DF-Server ─────────────────────
+        private static void RecopilarVersionDfServer(DatosServidor reporte)
+        {
+            reporte.DfServer.VersionSoftware = "No detectada";
+
+            string[] registryPaths = {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            };
+
+            foreach (var keyPath in registryPaths)
+            {
+                try
+                {
+                    using var baseKey = Registry.LocalMachine.OpenSubKey(keyPath);
+                    if (baseKey == null) continue;
+
+                    foreach (string subKeyName in baseKey.GetSubKeyNames())
+                    {
+                        using var subKey = baseKey.OpenSubKey(subKeyName);
+                        string displayName = subKey?.GetValue("DisplayName")?.ToString() ?? "";
+
+                        // Si encontramos DF-Server en la lista de programas
+                        if (displayName.IndexOf("DF-Server", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            displayName.IndexOf("DFServer", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            // INTENTO 1: Leer la versión del registro (si existe)
+                            string version = subKey?.GetValue("DisplayVersion")?.ToString();
+                            if (!string.IsNullOrWhiteSpace(version))
+                            {
+                                reporte.DfServer.VersionSoftware = version;
+                                return;
+                            }
+
+                            // INTENTO 2: Registro en blanco -> Buscamos el ejecutable en la ruta del registro
+                            string installLocation = subKey?.GetValue("InstallLocation")?.ToString() ?? "";
+                            if (string.IsNullOrWhiteSpace(installLocation))
+                            {
+                                installLocation = @"C:\Program Files (x86)\SIT\DF-SERVER_EVO(Server)";
+                            }
+
+                            string rutaExe = Path.Combine(installLocation, "DFServer_kernel.exe");
+                            string versionExtraida = ExtraerVersionDeArchivo(rutaExe);
+
+                            if (!string.IsNullOrWhiteSpace(versionExtraida))
+                            {
+                                reporte.DfServer.VersionSoftware = versionExtraida;
+                                return;
+                            }
+
+                            break;
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            // INTENTO 3 (Fallback): Vamos a la ruta estandar asegurada (Si en un futuro esto cambia, habría que actualizarlo aquí)
+            string rutaExeSegura = @"C:\Program Files (x86)\SIT\DF-SERVER_EVO(Server)\DFServer_kernel.exe";
+            string versionSegura = ExtraerVersionDeArchivo(rutaExeSegura);
+
+            if (!string.IsNullOrWhiteSpace(versionSegura))
+            {
+                reporte.DfServer.VersionSoftware = versionSegura;
+            }
+            else
+            {
+                reporte.DfServer.VersionSoftware = "Versión oculta (Registro y archivo sin datos)";
+            }
+        }
+
+        // ── Método auxiliar para leer el EXE ──
+        private static string ExtraerVersionDeArchivo(string ruta)
+        {
+            if (!System.IO.File.Exists(ruta)) return null;
+
+            try
+            {
+                var versionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(ruta);
+                string versionExe = versionInfo.FileVersion ?? versionInfo.ProductVersion;
+
+                // Si el fabricante le puso versión y no es un valor vacío
+                if (!string.IsNullOrWhiteSpace(versionExe) && versionExe.Trim() != "0.0.0.0")
+                {
+                    return versionExe;
+                }
+
+                // Si el archivo existe pero el fabricante olvidó compilar la versión, 
+                // extraemos la fecha de creación/modificación del kernel.
+                DateTime fechaModificacion = System.IO.File.GetLastWriteTime(ruta);
+                return $"Desconocida (Compilado: {fechaModificacion:dd/MM/yyyy})";
+            }
+            catch
+            {
+                return null;
             }
         }
     }

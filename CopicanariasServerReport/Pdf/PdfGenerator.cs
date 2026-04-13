@@ -438,6 +438,9 @@ namespace CopicanariasServerReport.Pdf
                             col.Item().Table(t =>
                             {
                                 t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
+                                // Versión de DF-Server
+                                var cVers = df.VersionSoftware.Contains("No detectada") ? Colors.Red.Darken2 : Colors.Blue.Darken3;
+                                FilaColor(t, "Versión instalada:", df.VersionSoftware, cVers);
 
                                 // Digitalización certificada
                                 var cDig = df.DigitalizacionCertificada

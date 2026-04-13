@@ -67,6 +67,7 @@ namespace CopicanariasServerReport
 
     public class DfServerInfo
     {
+        public string VersionSoftware { get; set; } = "No detectada";
         public bool DigitalizacionCertificada { get; set; } = false;
         public bool TieneFirmas { get; set; } = false;
         public int FirmasRestantes { get; set; } = 0;
