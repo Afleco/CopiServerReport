@@ -3,13 +3,10 @@
 ![C#](https://img.shields.io/badge/C%23-%23239120.svg?style=for-the-badge&logo=c-sharp&logoColor=white)
 ![.NET Framework](https://img.shields.io/badge/.NET_WinForms-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows_Server-0078D6?style=for-the-badge&logo=windows&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
 
 **CopiServerReport (CSR)** is a Windows Forms application designed to streamline server maintenance and health auditing for IT professionals. It centralizes deep hardware diagnostics, Windows Update management, and automated PDF reporting into a single interface.ServerReport (CSR)** is a Windows Forms application designed to streamline server maintenance and health auditing for IT professionals. It centralizes deep hardware diagnostics, Windows Update management, and automated PDF reporting into a single interface. 
 
 The core design principle of CSR is **safety-first execution**. It provides technicians with a comprehensive system analysis to ensure stability before applying critical updates or executing maintenance tasks in production environments.
-
-## Features
 
 ## Features
 
@@ -40,7 +37,7 @@ Includes a dedicated module for auditing the DF-Server document management syste
 * **Dependencies:** * `QuestPDF` (Reporting engine)
   * `LibreHardwareMonitorLib` (Hardware telemetry)
 
-## Installation & Usage
+## Installation & Usage 🧑🏻‍💻
 
 1. Clone the repository:
    ```bash
@@ -49,5 +46,5 @@ Includes a dedicated module for auditing the DF-Server document management syste
 
 3. Run as Administrator: The application requires elevated privileges to query kernel-level SMART data, interact with the Windows Update API, and manage global temporary files.
 
-## Contributing
+## Contributing 🫱🏻‍🫲🏻 
 This tool was developed to address specific workflows in server maintenance. Contributions, bug reports, and pull requests to improve hardware detection or expand functionality are welcome.
