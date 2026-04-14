@@ -44,7 +44,7 @@ Includes a dedicated module for auditing the DF-Server document management syste
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/Afleco/CopiServerReport.git](https://github.com/Afleco/CopiServerReport.git)
+   git clone https://github.com/Afleco/CopiServerReport.git
 2. Open the solution in Visual Studio and restore the required NuGet packages.
 
 3. Run as Administrator: The application requires elevated privileges to query kernel-level SMART data, interact with the Windows Update API, and manage global temporary files.
