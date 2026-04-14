@@ -4,8 +4,7 @@
 ![.NET Framework](https://img.shields.io/badge/.NET_WinForms-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows_Server-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 
-**CopiServerReport (CSR)** is a Windows Forms application designed to streamline server maintenance and health auditing for IT professionals. It centralizes deep hardware diagnostics, Windows Update management, and automated PDF reporting into a single interface.ServerReport (CSR)** is a Windows Forms application designed to streamline server maintenance and health auditing for IT professionals. It centralizes deep hardware diagnostics, Windows Update management, and automated PDF reporting into a single interface. 
-
+**CopiServerReport (CSR)** is a Windows Forms application designed to streamline server maintenance and health auditing for IT professionals. It centralizes deep hardware diagnostics, Windows Update management, and automated PDF reporting into a single interface.
 The core design principle of CSR is **safety-first execution**. It provides technicians with a comprehensive system analysis to ensure stability before applying critical updates or executing maintenance tasks in production environments.
 
 ## Features
