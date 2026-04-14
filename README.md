@@ -1,8 +1,10 @@
 # CopiServerReport (CSR) 🛠️📊
 
-![C#](https://img.shields.io/badge/C%23-%23239120.svg?style=for-the-badge&logo=c-sharp&logoColor=white)
-![.NET Framework](https://img.shields.io/badge/.NET_WinForms-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
-![Windows](https://img.shields.io/badge/Windows_Server-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![C#](https://img.shields.io/badge/C%23-Backend-239120?logo=c-sharp&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-WinForms-512BD4?logo=dotnet&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-Server-0078D6?logo=windows&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 **CopiServerReport (CSR)** is a Windows Forms application designed to streamline server maintenance and health auditing for IT professionals. It centralizes deep hardware diagnostics, Windows Update management, and automated PDF reporting into a single interface.
 
