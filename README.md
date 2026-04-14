@@ -30,8 +30,8 @@ Includes a dedicated module for auditing the DF-Server document management syste
 ### 📄 Automated PDF Reporting
 * Generates structured, branded PDF audit reports using `QuestPDF`.
 * **Report Customization:** Allows technicians to selectively omit acknowledged driver errors or pending updates from the final document, ensuring the client receives an accurate and relevant health summary.
-## Technical Details
-
+  
+## ⚙️ Technical Details
 * **Language/Framework:** C# (.NET WinForms)
 * **Architecture:** Strictly decoupled logic. All resource-intensive operations (WMI queries, downloads, file cleanup) are executed asynchronously via `Task.Run()` on MTA background threads to ensure UI responsiveness.
 * **Dependencies:** * `QuestPDF` (Reporting engine)
