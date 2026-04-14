@@ -1,7 +1,7 @@
 # CopiServerReport (CSR) 🛠️📊
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![C#](https://img.shields.io/badge/C%23-Backend-239120?logo=c-sharp&logoColor=white)
+![C#](https://img.shields.io/badge/C%23-Language-239120?logo=c-sharp&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-WinForms-512BD4?logo=dotnet&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-Server-0078D6?logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
