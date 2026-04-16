@@ -138,7 +138,7 @@
             cmbTechnician.Name = "cmbTecnico";
             cmbTechnician.Size = new Size(300, 28);
             cmbTechnician.TabIndex = 8;
-            cmbTechnician.SelectedIndexChanged += cmbTecnico_SelectedIndexChanged;
+            cmbTechnician.SelectedIndexChanged += cmbTechnician_SelectedIndexChanged;
             // 
             // btnCleanTemp
             // 

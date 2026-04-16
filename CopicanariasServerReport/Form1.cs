@@ -361,14 +361,14 @@ namespace CopicanariasServerReport
             return badge;
         }
 
-        private void cmbTecnico_SelectedIndexChanged(object sender, EventArgs e)
+        private void cmbTechnician_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (cmbTechnician.SelectedIndex <= 0) { MostrarPanelDf(false); return; }
+            if (cmbTechnician.SelectedIndex <= 0) { ShowDfPanel(false); return; }
             bool esDf = cmbTechnician.SelectedItem?.ToString().Contains("(DF-Server)") == true;
-            MostrarPanelDf(esDf);
+            ShowDfPanel(esDf);
         }
 
-        private void MostrarPanelDf(bool show)
+        private void ShowDfPanel(bool show)
         {
             DfPanel.Visible = show;
             if (!show) CleanData();
