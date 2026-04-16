@@ -16,6 +16,8 @@ namespace CopicanariasServerReport
 
         private Label _lblSignatureNotice;
 
+        private bool _isProcessRunning = false;
+
         private static readonly WinColor ClrFondo = WinColor.FromArgb(30, 30, 30);
         private static readonly WinColor ClrText = WinColor.FromArgb(212, 212, 212);
         private static readonly WinColor ClrSection = WinColor.FromArgb(86, 156, 214);
@@ -30,6 +32,8 @@ namespace CopicanariasServerReport
             InitializeComponent();
             this.DoubleBuffered = true;
             _http.DefaultRequestHeaders.UserAgent.ParseAdd("CopicanariasServerReport/1.0");
+
+            this.FormClosing += Form1_FormClosing;
         }
 
         private async void Form1_Load(object sender, EventArgs e)
@@ -90,6 +94,25 @@ namespace CopicanariasServerReport
             AdjustDashboardPositions();
 
             await InitialScanAsync();
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // Si el usuario le dio a la X principal y hay un proceso en ejecución
+            if (e.CloseReason == CloseReason.UserClosing && _isProcessRunning)
+            {
+                var resp = ModalMessage.Show(
+                    "Hay una operación de mantenimiento o diagnóstico en curso.\n\nSi cierras la aplicación ahora, el proceso se interrumpirá de forma brusca. \n\n¿Estás seguro de que deseas forzar el cierre?",
+                    "Proceso en ejecución",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Stop);
+
+                // Si responde que 'No', o le da a la 'X' de este aviso (Cancel), evitamos el cierre
+                if (resp != DialogResult.Yes)
+                {
+                    e.Cancel = true;
+                }
+            }
         }
 
         private void AdjustDashboardPositions()
@@ -742,6 +765,9 @@ namespace CopicanariasServerReport
 
         private void SetButtonsEnabled(bool enabled)
         {
+            // Si bloqueamos los botones (enabled=false), significa que hay un proceso en ejecución.
+            _isProcessRunning = !enabled;
+
             btnCleanTemp.Enabled = enabled;
             btnSmart.Enabled = enabled;
             btnUpdate.Enabled = enabled;
