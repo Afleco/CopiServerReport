@@ -98,16 +98,17 @@ namespace CopicanariasServerReport
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // Si el usuario le dio a la X principal y hay un proceso en ejecución
+            // Si el usuario le dio a la X y hay un proceso en ejecución
             if (e.CloseReason == CloseReason.UserClosing && _isProcessRunning)
             {
+                // Usamos YesNo.
                 var resp = ModalMessage.Show(
-                    "Hay una operación de mantenimiento o diagnóstico en curso.\n\nSi cierras la aplicación ahora, el proceso se interrumpirá de forma brusca. \n\n¿Estás seguro de que deseas forzar el cierre?",
+                    "Hay una operación de mantenimiento en curso.\n\nSi cierras la aplicación ahora, el proceso se interrumpirá de forma brusca.\n\n¿Estás completamente seguro de que deseas forzar el cierre?",
                     "Proceso en ejecución",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Stop);
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
 
-                // Si responde que 'No', o le da a la 'X' de este aviso (Cancel), evitamos el cierre
+                // Si NO ha pulsado "Sí" cancelamos el cierre.
                 if (resp != DialogResult.Yes)
                 {
                     e.Cancel = true;
