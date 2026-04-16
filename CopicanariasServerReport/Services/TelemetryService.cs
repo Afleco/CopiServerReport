@@ -1,44 +1,43 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.Win32;
+using System.Diagnostics;
 using System.Management;
-using System.Text.Json;
-using Microsoft.Win32;
 using System.Text.RegularExpressions;
 
 namespace CopicanariasServerReport.Services
 {
-    public static class TelemetriaService
+    public static class TelemetryService
     {
         // Mantenemos el parámetro log opcional para no romper Form1.cs
-        public static void RecopilarTelemetria(DatosServidor reporte, Action<string> log = null)
+        public static void RecopilarTelemetria(ServerData report, Action<string> log = null)
         {
             log?.Invoke("\n>>> Extrayendo información de Sistema y Seguridad...\n");
 
-            RecopilarSistemaOperativo(reporte);
-            RecopilarUsuarioActivo(reporte);
-            RecopilarRAM(reporte);
-            RecopilarDiscosLogicos(reporte);
+            GetOS(report);
+            GetActiveUser(report);
+            GetRAM(report);
+            GetLogicalDisks(report);
 
             // Antivirus y su Log en tiempo real
-            RecopilarAntivirus(reporte);
-            log?.Invoke($"    · Antivirus: {reporte.AntivirusNombre} [{reporte.AntivirusEstado}]\n");
+            GetAntivirus(report);
+            log?.Invoke($"    · Antivirus: {report.AntivirusName} [{report.AntivirusState}]\n");
 
-            RecopilarRed(reporte);
-            RecopilarUnidadesRed(reporte);
+            GetNetwork(report);
+            GetNetworkDrives(report);
 
             // Solo perdemos tiempo abriendo el cmd y buscando backups si es técnico DF
-            if (reporte.EsTecnicoDf)
+            if (report.IsDfTechnician)
             {
-                RecopilarEstadoBackup(reporte);
-                log?.Invoke($"    · Backup Local: {reporte.EstadoBackup} (Última: {reporte.FechaUltimoBackup})\n");
+                GetBackUpState(report);
+                log?.Invoke($"    · Backup Local: {report.BackupState} (Última: {report.LastBackupDate})\n");
 
                 
-                RecopilarVersionDfServer(reporte);
-                log?.Invoke($"    · DF-Server: Versión detectada {reporte.DfServer.VersionSoftware}\n");
+                GetDfServerVersion(report);
+                log?.Invoke($"    · DF-Server: Versión detectada {report.DfServer.Version}\n");
             }
         }
 
         // ── Sistema Operativo ────────────────────────────────────────
-        private static void RecopilarSistemaOperativo(DatosServidor reporte)
+        private static void GetOS(ServerData report)
         {
             try
             {
@@ -46,15 +45,15 @@ namespace CopicanariasServerReport.Services
                 foreach (ManagementObject o in s.Get())
                     using (o)
                     {
-                        reporte.SistemaOperativo = o["Caption"]?.ToString() ?? Environment.OSVersion.ToString();
+                        report.OS = o["Caption"]?.ToString() ?? Environment.OSVersion.ToString();
                         break;
                     }
             }
-            catch { reporte.SistemaOperativo = Environment.OSVersion.ToString(); }
+            catch { report.OS = Environment.OSVersion.ToString(); }
         }
 
         // ── Usuario de la sesión real (Ignorando permisos de Administrador) ──
-        private static void RecopilarUsuarioActivo(DatosServidor reporte)
+        private static void GetActiveUser(ServerData reporte)
         {
             try
             {
@@ -66,18 +65,18 @@ namespace CopicanariasServerReport.Services
                         if (!string.IsNullOrEmpty(fullUser))
                         {
                             var partes = fullUser.Split('\\');
-                            reporte.UsuarioActivo = partes.Length > 1 ? partes[1] : fullUser;
+                            reporte.ActiveUser = partes.Length > 1 ? partes[1] : fullUser;
                             return;
                         }
                     }
             }
             catch { }
 
-            reporte.UsuarioActivo = Environment.UserName;
+            reporte.ActiveUser = Environment.UserName;
         }
 
         // ── RAM ──────────────────────────────────────────────────────
-        private static void RecopilarRAM(DatosServidor reporte)
+        private static void GetRAM(ServerData report)
         {
             try
             {
@@ -85,7 +84,7 @@ namespace CopicanariasServerReport.Services
                 foreach (ManagementObject cs in s.Get())
                     using (cs)
                     {
-                        reporte.MemoriaRAM = $"{Math.Round(Convert.ToInt64(cs["TotalPhysicalMemory"]) / (1024.0 * 1024.0 * 1024.0))} GB";
+                        report.RAM = $"{Math.Round(Convert.ToInt64(cs["TotalPhysicalMemory"]) / (1024.0 * 1024.0 * 1024.0))} GB";
                         break;
                     }
             }
@@ -93,33 +92,33 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Discos lógicos (volúmenes fijos + extraíbles montados) ───
-        private static void RecopilarDiscosLogicos(DatosServidor reporte)
+        private static void GetLogicalDisks(ServerData report)
         {
-            reporte.DiscosLogicos.Clear();
+            report.LogicDisks.Clear();
             foreach (var d in DriveInfo.GetDrives()
                 .Where(x => x.IsReady &&
                            (x.DriveType == DriveType.Fixed ||
                             x.DriveType == DriveType.Removable)))
             {
                 double total = d.TotalSize / 1073741824.0;
-                double libre = d.AvailableFreeSpace / 1073741824.0;
-                reporte.DiscosLogicos.Add(new DiscoLogicoInfo
+                double free = d.AvailableFreeSpace / 1073741824.0;
+                report.LogicDisks.Add(new LogicDiskInfo
                 {
-                    Letra = d.Name,
+                    Letter = d.Name,
                     TotalGB = total,
-                    LibreGB = libre,
-                    PorcentajeLibre = total > 0 ? (libre / total) * 100 : 0
+                    FreeGB = free,
+                    FreePercent = total > 0 ? (free / total) * 100 : 0
                 });
             }
         }
 
         // ── Antivirus (Detección Multinivel) ─────────────────────────
-        private static void RecopilarAntivirus(DatosServidor reporte)
+        private static void GetAntivirus(ServerData report)
         {
-            reporte.AntivirusNombre = "";
-            reporte.AntivirusEstado = "";
-            reporte.AntivirusRuta = "";
-            bool encontradoTercero = false;
+            report.AntivirusName = "";
+            report.AntivirusState = "";
+            report.AntivirusPath = "";
+            bool isThirdPartyFound = false;
 
             // --- FASE 1: Buscar antivirus de terceros en SecurityCenter ---
             try
@@ -132,23 +131,23 @@ namespace CopicanariasServerReport.Services
                 {
                     using (av)
                     {
-                        string nombre = av["displayName"]?.ToString() ?? "";
+                        string name = av["displayName"]?.ToString() ?? "";
 
                         // Ignoramos a Defender para dar prioridad a los de terceros
-                        if (nombre.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0)
+                        if (name.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0)
                             continue;
 
-                        reporte.AntivirusNombre = nombre;
+                        report.AntivirusName = name;
                         try
                         {
                             uint state = Convert.ToUInt32(av["productState"] ?? 0u);
-                            bool activo = ((state >> 12) & 0xF) == 1;
-                            bool alDia = ((state >> 4) & 0xF) != 10;
-                            reporte.AntivirusEstado = activo ? (alDia ? "Activo y actualizado" : "Activo — Desactualizado") : "Deshabilitado ⚠️";
+                            bool active = ((state >> 12) & 0xF) == 1;
+                            bool upToDate = ((state >> 4) & 0xF) != 10;
+                            report.AntivirusState = active ? (upToDate ? "Activo y actualizado" : "Activo — Desactualizado") : "Deshabilitado ⚠️";
                         }
-                        catch { reporte.AntivirusEstado = "Activo (estado no determinado)"; }
+                        catch { report.AntivirusState = "Activo (estado no determinado)"; }
 
-                        encontradoTercero = true;
+                        isThirdPartyFound = true;
                         break;
                     }
                 }
@@ -156,13 +155,13 @@ namespace CopicanariasServerReport.Services
             catch { }
 
             // --- FASE 2: Nivel Kernel (Drivers FSFilter Anti-Virus) para EDRs ocultos ---
-            if (!encontradoTercero)
+            if (!isThirdPartyFound)
             {
-                encontradoTercero = BuscarAvTerceros(reporte);
+                isThirdPartyFound = SearchThirdPartyAntivirus(report);
             }
 
             // --- FASE 3: Si no hay NADA de terceros, comprobamos Windows Defender ---
-            if (!encontradoTercero)
+            if (!isThirdPartyFound)
             {
                 try
                 {
@@ -170,42 +169,42 @@ namespace CopicanariasServerReport.Services
                         "root\\Microsoft\\Windows\\Defender",
                         "SELECT AMProductVersion, AMRunningMode, AntivirusEnabled FROM MSFT_MpComputerStatus");
 
-                    bool defenderEncontrado = false;
+                    bool isWDefenderFound = false;
                     foreach (ManagementObject mp in s.Get())
                     {
                         using (mp)
                         {
                             string version = mp["AMProductVersion"]?.ToString() ?? "";
-                            string modo = mp["AMRunningMode"]?.ToString() ?? "";
-                            bool avActivo = false;
-                            try { avActivo = Convert.ToBoolean(mp["AntivirusEnabled"] ?? false); } catch { }
+                            string mode = mp["AMRunningMode"]?.ToString() ?? "";
+                            bool avActive = false;
+                            try { avActive = Convert.ToBoolean(mp["AntivirusEnabled"] ?? false); } catch { }
 
-                            reporte.AntivirusNombre = $"Windows Defender (v{version})";
-                            if (!avActivo || modo.Contains("Passive"))
-                                reporte.AntivirusEstado = "Pasivo / Deshabilitado ⚠️";
+                            report.AntivirusName = $"Windows Defender (v{version})";
+                            if (!avActive || mode.Contains("Passive"))
+                                report.AntivirusState = "Pasivo / Deshabilitado ⚠️";
                             else
-                                reporte.AntivirusEstado = "Activo y actualizado";
+                                report.AntivirusState = "Activo y actualizado";
 
-                            defenderEncontrado = true;
+                            isWDefenderFound = true;
                             break;
                         }
                     }
 
-                    if (!defenderEncontrado)
+                    if (!isWDefenderFound)
                     {
-                        reporte.AntivirusNombre = "No detectado";
-                        reporte.AntivirusEstado = "No fue posible consultar el estado del antivirus";
+                        report.AntivirusName = "No detectado";
+                        report.AntivirusState = "No fue posible consultar el estado del antivirus";
                     }
                 }
                 catch
                 {
-                    reporte.AntivirusNombre = "No detectado";
-                    reporte.AntivirusEstado = "No fue posible consultar el estado del antivirus";
+                    report.AntivirusName = "No detectado";
+                    report.AntivirusState = "No fue posible consultar el estado del antivirus";
                 }
             }
         }
 
-        private static bool BuscarAvTerceros(DatosServidor reporte)
+        private static bool SearchThirdPartyAntivirus(ServerData report)
         {
             // --- NIVEL 1: FSFilter Anti-Virus Drivers (EDRs puros con driver de kernel) ---
             try
@@ -222,12 +221,12 @@ namespace CopicanariasServerReport.Services
                         if (displayName.IndexOf("Windows Defender", StringComparison.OrdinalIgnoreCase) >= 0 ||
                             displayName.Equals("WdFilter", StringComparison.OrdinalIgnoreCase)) continue;
 
-                        string nombreLimpio = displayName
+                        string cleanName = displayName
                             .Replace(" Mini-Filter Driver", "").Replace(" Minifilter Driver", "")
                             .Replace(" File System Filter", "").Replace(" Filter Driver", "").Trim();
 
-                        reporte.AntivirusNombre = $"{nombreLimpio} (Motor Core EDR)";
-                        reporte.AntivirusEstado = (driver["State"]?.ToString() ?? "")
+                        report.AntivirusName = $"{cleanName} (Motor Core EDR)";
+                        report.AntivirusState = (driver["State"]?.ToString() ?? "")
                             .Equals("Running", StringComparison.OrdinalIgnoreCase)
                             ? "Activo (Driver en ejecución)" : "Instalado (Driver detenido) ⚠️";
                         return true;
@@ -236,14 +235,14 @@ namespace CopicanariasServerReport.Services
             catch { }
 
             // --- NIVEL 2: Servicios por DisplayName (cubre agentes userspace como Malwarebytes EA) ---
-            string[] edrMarcas = { "threatdown", "malwarebytes", "crowdstrike", "sentinel", "sophos",
+            string[] edrBrands = { "threatdown", "malwarebytes", "crowdstrike", "sentinel", "sophos",
                                    "cylance", "carbon black", "trellix", "bitdefender", "eset",
                                    "kaspersky", "symantec", "mcafee", "watchguard", "fortinet",
                                    "forticlient", "trend micro", "cybereason", "cortex",
                                    "check point", "cisco", "panda", "avast", "avg", "avira" };
 
             // LISTA NEGRA: Palabras que delatan que NO es el motor principal del antivirus
-            string[] ignorar = { "webadvisor", "vpn", "updater", "installer", "safeconnect",
+            string[] ignore = { "webadvisor", "vpn", "updater", "installer", "safeconnect",
                                  "management agent", "network", "firewall", "identity", "update service" };
 
             try
@@ -259,13 +258,13 @@ namespace CopicanariasServerReport.Services
                         string lower = displayName.ToLower();
 
                         // Aplicamos el filtro de exclusiones ANTES de buscar la marca
-                        if (ignorar.Any(ig => lower.Contains(ig))) continue;
+                        if (ignore.Any(ig => lower.Contains(ig))) continue;
 
-                        if (edrMarcas.Any(kw => lower.Contains(kw)))
+                        if (edrBrands.Any(kw => lower.Contains(kw)))
                         {
-                            string estado = svc["State"]?.ToString() ?? "";
-                            reporte.AntivirusNombre = displayName;
-                            reporte.AntivirusEstado = estado.Equals("Running", StringComparison.OrdinalIgnoreCase)
+                            string state = svc["State"]?.ToString() ?? "";
+                            report.AntivirusName = displayName;
+                            report.AntivirusState = state.Equals("Running", StringComparison.OrdinalIgnoreCase)
                                 ? "Activo (Servicio en ejecución)" : "Instalado (Servicio detenido) ⚠️";
                             return true;
                         }
@@ -277,9 +276,9 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Interfaces de red activas ────────────────────────────────
-        private static void RecopilarRed(DatosServidor reporte)
+        private static void GetNetwork(ServerData report)
         {
-            reporte.InterfacesRed.Clear();
+            report.NetworkInterfaces.Clear();
             try
             {
                 using var s = new ManagementObjectSearcher(
@@ -287,21 +286,21 @@ namespace CopicanariasServerReport.Services
                 foreach (ManagementObject red in s.Get())
                     using (red)
                     {
-                        string nombre = red["Name"]?.ToString() ?? "Desconocido";
+                        string name = red["Name"]?.ToString() ?? "Desconocido";
                         string connId = red["NetConnectionID"]?.ToString() ?? "";
-                        long velBps = 0;
-                        try { velBps = Convert.ToInt64(red["Speed"] ?? 0L); } catch { }
-                        string velStr = velBps > 0 ? $"{velBps / 1_000_000} Mbps" : "N/A";
-                        string tipoAd = red["AdapterType"]?.ToString() ?? "";
-                        string tipoStr = (tipoAd.Contains("Wireless") || connId.ToLower().Contains("wi-fi") || connId.ToLower().Contains("wifi"))
-                            ? "Wi-Fi" : tipoAd.Contains("Ethernet") ? "Ethernet" : "Otro";
+                        long speedBps = 0;
+                        try { speedBps = Convert.ToInt64(red["Speed"] ?? 0L); } catch { }
+                        string speedStr = speedBps > 0 ? $"{speedBps / 1_000_000} Mbps" : "N/A";
+                        string typeAd = red["AdapterType"]?.ToString() ?? "";
+                        string typeStr = (typeAd.Contains("Wireless") || connId.ToLower().Contains("wi-fi") || connId.ToLower().Contains("wifi"))
+                            ? "Wi-Fi" : typeAd.Contains("Ethernet") ? "Ethernet" : "Otro";
 
-                        reporte.InterfacesRed.Add(new RedInfo
+                        report.NetworkInterfaces.Add(new NetworkInterfaceInfo
                         {
-                            Nombre = nombre,
-                            Tipo = tipoStr,
-                            Velocidad = velStr,
-                            Estado = "Conectado"
+                            Name = name,
+                            Type = typeStr,
+                            Speed = speedStr,
+                            State = "Conectado"
                         });
                     }
             }
@@ -313,9 +312,9 @@ namespace CopicanariasServerReport.Services
         [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
         private static extern bool GetDiskFreeSpaceEx(string lpDirectoryName, out ulong lpFreeBytesAvailable, out ulong lpTotalNumberOfBytes, out ulong lpTotalNumberOfFreeBytes);
 
-        private static void RecopilarUnidadesRed(DatosServidor reporte)
+        private static void GetNetworkDrives(ServerData report)
         {
-            reporte.UnidadesRed.Clear();
+            report.NetworkDrives.Clear();
             try
             {
                 using var usersKey = Registry.Users;
@@ -326,31 +325,31 @@ namespace CopicanariasServerReport.Services
                     using var networkKey = usersKey.OpenSubKey(networkPath);
                     if (networkKey != null)
                     {
-                        foreach (string letra in networkKey.GetSubKeyNames())
+                        foreach (string letter in networkKey.GetSubKeyNames())
                         {
-                            using var driveKey = networkKey.OpenSubKey(letra);
+                            using var driveKey = networkKey.OpenSubKey(letter);
                             if (driveKey != null)
                             {
-                                string rutaRemota = driveKey.GetValue("RemotePath")?.ToString() ?? "";
-                                if (!string.IsNullOrEmpty(rutaRemota))
+                                string remotePath = driveKey.GetValue("RemotePath")?.ToString() ?? "";
+                                if (!string.IsNullOrEmpty(remotePath))
                                 {
-                                    string letraMayuscula = letra.ToUpper() + ":";
-                                    if (!reporte.UnidadesRed.Any(u => u.Letra == letraMayuscula && u.Ruta == rutaRemota))
+                                    string caseLetter = letter.ToUpper() + ":";
+                                    if (!report.NetworkDrives.Any(u => u.Letter == caseLetter && u.Path == remotePath))
                                     {
-                                        var infoRed = new UnidadRedInfo { Letra = letraMayuscula, Ruta = rutaRemota };
-                                        if (GetDiskFreeSpaceEx(rutaRemota, out ulong freeBytesAvail, out ulong totalBytes, out ulong totalFreeBytes))
+                                        var networkInfo = new NetworkDrivesInfo { Letter = caseLetter, Path = remotePath };
+                                        if (GetDiskFreeSpaceEx(remotePath, out ulong freeBytesAvail, out ulong totalBytes, out ulong totalFreeBytes))
                                         {
-                                            infoRed.TotalGB = totalBytes / 1073741824.0;
-                                            infoRed.LibreGB = freeBytesAvail / 1073741824.0;
-                                            if (infoRed.TotalGB > 0)
+                                            networkInfo.TotalGB = totalBytes / 1073741824.0;
+                                            networkInfo.FreeGB = freeBytesAvail / 1073741824.0;
+                                            if (networkInfo.TotalGB > 0)
                                             {
-                                                infoRed.PorcentajeLibre = (infoRed.LibreGB / infoRed.TotalGB) * 100;
-                                                int barrasLlenas = Math.Max(0, Math.Min(10, (int)Math.Round((100 - infoRed.PorcentajeLibre) / 10.0)));
-                                                infoRed.UsoVisual = $"[{new string('█', barrasLlenas)}{new string('░', 10 - barrasLlenas)}]";
+                                                networkInfo.FreePercent = (networkInfo.FreeGB / networkInfo.TotalGB) * 100;
+                                                int barrasLlenas = Math.Max(0, Math.Min(10, (int)Math.Round((100 - networkInfo.FreePercent) / 10.0)));
+                                                networkInfo.VisualUse = $"[{new string('█', barrasLlenas)}{new string('░', 10 - barrasLlenas)}]";
                                             }
                                         }
-                                        else { infoRed.UsoVisual = "[No accesible]"; }
-                                        reporte.UnidadesRed.Add(infoRed);
+                                        else { networkInfo.VisualUse = "[No accesible]"; }
+                                        report.NetworkDrives.Add(networkInfo);
                                     }
                                 }
                             }
@@ -362,10 +361,10 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Estado de Backup de Windows ──────────────────────────────
-        private static void RecopilarEstadoBackup(DatosServidor reporte)
+        private static void GetBackUpState(ServerData report)
         {
-            reporte.EstadoBackup = "No configurado";
-            reporte.FechaUltimoBackup = "--/--/----";
+            report.BackupState = "No configurado";
+            report.LastBackupDate = "--/--/----";
 
             try
             {
@@ -389,27 +388,27 @@ namespace CopicanariasServerReport.Services
                 string output = proc.StandardOutput.ReadToEnd();
                 proc.WaitForExit();
 
-                string ultimaFecha = "";
-                string[] lineas = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                string lastDate = "";
+                string[] lanes = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
-                foreach (string linea in lineas)
+                foreach (string lane in lanes)
                 {
-                    string lower = linea.ToLower();
+                    string lower = lane.ToLower();
 
                     if (lower.Contains("backup time:") || lower.Contains("hora de copia") || lower.Contains("hora de la copia"))
                     {
-                        var partes = linea.Split(new[] { ':' }, 2);
-                        if (partes.Length == 2)
+                        var parts = lane.Split(new[] { ':' }, 2);
+                        if (parts.Length == 2)
                         {
-                            ultimaFecha = partes[1].Trim();
+                            lastDate = parts[1].Trim();
                         }
                     }
                 }
 
-                if (!string.IsNullOrEmpty(ultimaFecha))
+                if (!string.IsNullOrEmpty(lastDate))
                 {
-                    reporte.FechaUltimoBackup = ultimaFecha;
-                    reporte.EstadoBackup = "OK (vía wbadmin)";
+                    report.LastBackupDate = lastDate;
+                    report.BackupState = "OK (vía wbadmin)";
                     return;
                 }
             }
@@ -423,13 +422,13 @@ namespace CopicanariasServerReport.Services
                 foreach (ManagementObject summary in s.Get())
                     using (summary)
                     {
-                        string fecha = summary["LastSuccessfulBackupTime"]?.ToString();
-                        if (!string.IsNullOrEmpty(fecha))
+                        string date = summary["LastSuccessfulBackupTime"]?.ToString();
+                        if (!string.IsNullOrEmpty(date))
                         {
-                            reporte.FechaUltimoBackup = ManagementDateTimeConverter.ToDateTime(fecha).ToString("dd/MM/yyyy HH:mm");
+                            report.LastBackupDate = ManagementDateTimeConverter.ToDateTime(date).ToString("dd/MM/yyyy HH:mm");
                             uint hr = 0;
                             try { hr = Convert.ToUInt32(summary["LastBackupResultHR"] ?? 0u); } catch { }
-                            reporte.EstadoBackup = hr == 0 ? "OK" : $"Error (0x{hr:X8})";
+                            report.BackupState = hr == 0 ? "OK" : $"Error (0x{hr:X8})";
                         }
                         return;
                     }
@@ -441,21 +440,21 @@ namespace CopicanariasServerReport.Services
                 using var baseKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\WindowsBackup\ActionHistory");
                 if (baseKey != null)
                 {
-                    DateTime mejorFecha = DateTime.MinValue;
-                    foreach (string subNombre in baseKey.GetSubKeyNames())
+                    DateTime betterDate = DateTime.MinValue;
+                    foreach (string subName in baseKey.GetSubKeyNames())
                     {
-                        using var sub = baseKey.OpenSubKey(subNombre);
+                        using var sub = baseKey.OpenSubKey(subName);
                         byte[] ftBytes = sub?.GetValue("ActionItemDate") as byte[];
                         if (ftBytes != null && ftBytes.Length == 8)
                         {
                             DateTime dt = DateTime.FromFileTime(BitConverter.ToInt64(ftBytes, 0));
-                            if (dt > mejorFecha) mejorFecha = dt;
+                            if (dt > betterDate) betterDate = dt;
                         }
                     }
-                    if (mejorFecha > DateTime.MinValue)
+                    if (betterDate > DateTime.MinValue)
                     {
-                        reporte.FechaUltimoBackup = mejorFecha.ToString("dd/MM/yyyy HH:mm");
-                        reporte.EstadoBackup = "OK";
+                        report.LastBackupDate = betterDate.ToString("dd/MM/yyyy HH:mm");
+                        report.BackupState = "OK";
                     }
                 }
             }
@@ -463,12 +462,12 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Java Desktop (JRE 8): detección local + consulta online en java.com ───
-        public static async Task RecopilarJavaAsync(DatosServidor reporte, Action<string> log, HttpClient http)
+        public static async Task FetchJavaAsync(ServerData report, Action<string> log, HttpClient http)
         {
-            reporte.VersionJava = "No instalado / No detectado";
-            reporte.JavaAlDia = false;
-            reporte.JavaVersionOnline = "";
-            string versionInstalada = "";
+            report.JavaVersion = "No instalado / No detectado";
+            report.IsJavaUpToDate = false;
+            report.JavaVersionOnline = "";
+            string installedVersion = "";
             int updateLocal = 0;
 
             string[] registryPaths = {
@@ -492,7 +491,7 @@ namespace CopicanariasServerReport.Services
                             if (updateNum > updateLocal)
                             {
                                 updateLocal = updateNum;
-                                versionInstalada = subName;
+                                installedVersion = subName;
                             }
                         }
                     }
@@ -506,7 +505,7 @@ namespace CopicanariasServerReport.Services
                 return;
             }
 
-            reporte.VersionJava = $"Java 8 Update {updateLocal}";
+            report.JavaVersion = $"Java 8 Update {updateLocal}";
 
             try
             {
@@ -517,38 +516,38 @@ namespace CopicanariasServerReport.Services
                 if (matchOnline.Success)
                 {
                     int updateOnline = int.Parse(matchOnline.Groups[1].Value);
-                    reporte.JavaVersionOnline = $"Java 8 Update {updateOnline} (Fuente: java.com)";
+                    report.JavaVersionOnline = $"Java 8 Update {updateOnline} (Fuente: java.com)";
 
                     if (updateLocal >= updateOnline)
                     {
-                        reporte.JavaAlDia = true;
-                        reporte.VersionJava += " ✅";
+                        report.IsJavaUpToDate = true;
+                        report.JavaVersion += " ✅";
                     }
                     else
                     {
-                        reporte.JavaAlDia = false;
-                        reporte.VersionJava += $" ⚠️ (disponible Update {updateOnline})";
+                        report.IsJavaUpToDate = false;
+                        report.JavaVersion += $" ⚠️ (disponible Update {updateOnline})";
                     }
 
                     log?.Invoke($"    · Java instalado: Update {updateLocal} | Disponible en web: Update {updateOnline}\n");
                 }
                 else
                 {
-                    reporte.JavaVersionOnline = "No se pudo encontrar la versión en java.com";
+                    report.JavaVersionOnline = "No se pudo encontrar la versión en java.com";
                     log?.Invoke("    · Java: Cambio en el diseño de java.com, no se encontró el Update.\n");
                 }
             }
             catch
             {
-                reporte.JavaVersionOnline = "No se pudo verificar (sin conexión o error de red)";
+                report.JavaVersionOnline = "No se pudo verificar (sin conexión o error de red)";
                 log?.Invoke("    · Java: No se pudo consultar versión online.\n");
             }
         }
 
         // ── Detección de la versión de DF-Server ─────────────────────
-        private static void RecopilarVersionDfServer(DatosServidor reporte)
+        private static void GetDfServerVersion(ServerData report)
         {
-            reporte.DfServer.VersionSoftware = "No detectada";
+            report.DfServer.Version = "No detectada";
 
             string[] registryPaths = {
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
@@ -575,7 +574,7 @@ namespace CopicanariasServerReport.Services
                             string version = subKey?.GetValue("DisplayVersion")?.ToString();
                             if (!string.IsNullOrWhiteSpace(version))
                             {
-                                reporte.DfServer.VersionSoftware = version;
+                                report.DfServer.Version = version;
                                 return;
                             }
 
@@ -586,12 +585,12 @@ namespace CopicanariasServerReport.Services
                                 installLocation = @"C:\Program Files (x86)\SIT\DF-SERVER_EVO(Server)";
                             }
 
-                            string rutaExe = Path.Combine(installLocation, "DFServer_kernel.exe");
-                            string versionExtraida = ExtraerVersionDeArchivo(rutaExe);
+                            string pathExe = Path.Combine(installLocation, "DFServer_kernel.exe");
+                            string extractedVersion = ExtractFileVersion(pathExe);
 
-                            if (!string.IsNullOrWhiteSpace(versionExtraida))
+                            if (!string.IsNullOrWhiteSpace(extractedVersion))
                             {
-                                reporte.DfServer.VersionSoftware = versionExtraida;
+                                report.DfServer.Version = extractedVersion;
                                 return;
                             }
 
@@ -603,21 +602,21 @@ namespace CopicanariasServerReport.Services
             }
 
             // INTENTO 3 (Fallback): Vamos a la ruta estandar asegurada (Si en un futuro esto cambia, habría que actualizarlo aquí)
-            string rutaExeSegura = @"C:\Program Files (x86)\SIT\DF-SERVER_EVO(Server)\DFServer_kernel.exe";
-            string versionSegura = ExtraerVersionDeArchivo(rutaExeSegura);
+            string safetyExePath = @"C:\Program Files (x86)\SIT\DF-SERVER_EVO(Server)\DFServer_kernel.exe";
+            string safetyVersion = ExtractFileVersion(safetyExePath);
 
-            if (!string.IsNullOrWhiteSpace(versionSegura))
+            if (!string.IsNullOrWhiteSpace(safetyVersion))
             {
-                reporte.DfServer.VersionSoftware = versionSegura;
+                report.DfServer.Version = safetyVersion;
             }
             else
             {
-                reporte.DfServer.VersionSoftware = "Versión oculta (Registro y archivo sin datos)";
+                report.DfServer.Version = "Versión oculta (Registro y archivo sin datos)";
             }
         }
 
         // ── Método auxiliar para leer el EXE ──
-        private static string ExtraerVersionDeArchivo(string ruta)
+        private static string ExtractFileVersion(string ruta)
         {
             if (!System.IO.File.Exists(ruta)) return null;
 
@@ -634,8 +633,8 @@ namespace CopicanariasServerReport.Services
 
                 // Si el archivo existe pero el fabricante olvidó compilar la versión, 
                 // extraemos la fecha de creación/modificación del kernel.
-                DateTime fechaModificacion = System.IO.File.GetLastWriteTime(ruta);
-                return $"Desconocida (Compilado: {fechaModificacion:dd/MM/yyyy})";
+                DateTime modificationDate = System.IO.File.GetLastWriteTime(ruta);
+                return $"Desconocida (Compilado: {modificationDate:dd/MM/yyyy})";
             }
             catch
             {

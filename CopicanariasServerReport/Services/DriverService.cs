@@ -10,14 +10,14 @@ namespace CopicanariasServerReport.Services
         // Escanea todos los dispositivos con error y enriquece la info con datos
         // del driver instalado (proveedor, versión). Se puede llamar de forma
         // independiente (escaneo al arranque) o desde la telemetría del PDF.
-        public static async Task<List<DriverInfo>> EscanearAsync(Action<string> log)
+        public static async Task<List<DriverInfo>> ScanAsync(Action<string> log)
         {
             var drivers = new List<DriverInfo>();
 
             await Task.Run(() =>
             {
                 // ── Paso 1: dispositivos con error (código ≠ 0) ─────────────
-                var dispositivosConError = new Dictionary<string, DriverInfo>(StringComparer.OrdinalIgnoreCase);
+                var failedDevices = new Dictionary<string, DriverInfo>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
                     using var s = new ManagementObjectSearcher(
@@ -26,19 +26,19 @@ namespace CopicanariasServerReport.Services
                     foreach (ManagementObject d in s.Get())
                         using (d)
                         {
-                            int codigo = 0;
-                            try { codigo = Convert.ToInt32(d["ConfigManagerErrorCode"] ?? 0); } catch { }
+                            int code = 0;
+                            try { code = Convert.ToInt32(d["ConfigManagerErrorCode"] ?? 0); } catch { }
 
                             var info = new DriverInfo
                             {
-                                Nombre = d["Name"]?.ToString()?.Trim() ?? "Dispositivo desconocido",
-                                Fabricante = d["Manufacturer"]?.ToString()?.Trim() ?? "Desconocido",
-                                CodigoError = codigo,
-                                DescripcionError = DescribirError(codigo)
+                                Name = d["Name"]?.ToString()?.Trim() ?? "Dispositivo desconocido",
+                                Manufacturer = d["Manufacturer"]?.ToString()?.Trim() ?? "Desconocido",
+                                ErrorCode = code,
+                                ErrorDescription = DescribeError(code)
                             };
 
                             string id = d["DeviceID"]?.ToString() ?? "";
-                            dispositivosConError[info.Nombre] = info;
+                            failedDevices[info.Name] = info;
                             drivers.Add(info);
                         }
                 }
@@ -56,19 +56,19 @@ namespace CopicanariasServerReport.Services
                     foreach (ManagementObject drv in s.Get())
                         using (drv)
                         {
-                            string nombre = drv["DeviceName"]?.ToString()?.Trim() ?? "";
-                            if (string.IsNullOrEmpty(nombre)) continue;
+                            string name = drv["DeviceName"]?.ToString()?.Trim() ?? "";
+                            if (string.IsNullOrEmpty(name)) continue;
 
-                            if (dispositivosConError.TryGetValue(nombre, out var info))
+                            if (failedDevices.TryGetValue(name, out var info))
                             {
                                 string ver = drv["DriverVersion"]?.ToString() ?? "";
-                                string proveedor = drv["DriverProviderName"]?.ToString() ?? "";
+                                string provider = drv["DriverProviderName"]?.ToString() ?? "";
 
                                 if (!string.IsNullOrEmpty(ver))
                                 {
-                                    info.VersionDriver = ver;
-                                    info.ProveedorDriver = !string.IsNullOrEmpty(proveedor) ? proveedor : "Desconocido";
-                                    info.TieneDriver = true;
+                                    info.DriverVersion = ver;
+                                    info.DriverProvider = !string.IsNullOrEmpty(provider) ? provider : "Desconocido";
+                                    info.HasDriver = true;
                                 }
                             }
                         }
@@ -86,9 +86,9 @@ namespace CopicanariasServerReport.Services
                 log($"    ⚠️  {drivers.Count} dispositivo(s) con problemas:\n");
                 foreach (var d in drivers)
                 {
-                    string driver = d.TieneDriver ? $"Driver: {d.VersionDriver}" : "Sin driver instalado";
-                    log($"    · {d.Nombre}\n");
-                    log($"      Código {d.CodigoError}: {d.DescripcionError} — {driver}\n");
+                    string driver = d.HasDriver ? $"Driver: {d.DriverVersion}" : "Sin driver instalado";
+                    log($"    · {d.Name}\n");
+                    log($"      Código {d.ErrorCode}: {d.ErrorDescription} — {driver}\n");
                 }
             }
 
@@ -96,17 +96,17 @@ namespace CopicanariasServerReport.Services
         }
 
         // Versión síncrona para usar dentro de Task.Run en la telemetría del PDF
-        public static List<DriverInfo> Escanear()
+        public static List<DriverInfo> Scan()
         {
             var resultado = new List<DriverInfo>();
-            var tarea = EscanearAsync(_ => { }); // log vacío: en telemetría no usamos log
+            var tarea = ScanAsync(_ => { }); // log vacío: en telemetría no usamos log
             tarea.Wait();
             return tarea.Result;
         }
 
         // ── Mapeo de códigos de error de Windows a descripciones en español ──
         // Fuente: https://learn.microsoft.com/en-us/windows-hardware/drivers/install/cm-prob-xxx
-        public static string DescribirError(int codigo) => codigo switch
+        public static string DescribeError(int code) => code switch
         {
             1 => "Configuración incorrecta del dispositivo",
             3 => "Driver posiblemente dañado",
@@ -132,7 +132,7 @@ namespace CopicanariasServerReport.Services
             47 => "Preparado para extracción segura (Desconéctelo físicamente)",
             48 => "Bloqueado por políticas del sistema",
             52 => "Problema con la firma digital del driver",
-            _ => $"Error desconocido (código {codigo})"
+            _ => $"Error desconocido (código {code})"
         };
     }
 }

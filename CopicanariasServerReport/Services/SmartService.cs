@@ -43,19 +43,19 @@ namespace CopicanariasServerReport.Services
             public int? HoursUsed { get; set; }
         }
 
-        public static async Task<List<DiscoInfo>> ObtenerDiscosAsync(Action<string> log)
+        public static async Task<List<DiskInfo>> ObtenerDiscosAsync(Action<string> log)
         {
-            var discos = new List<DiscoInfo>();
+            var disks = new List<DiskInfo>();
             log($">>> ⚡ Iniciando motor LibreHardwareMonitor con verificación S.M.A.R.T. nativa...\n");
 
             await Task.Run(() =>
             {
-                var datosLhm = ExtraerDatosLHM(log);
-                var smartPorIndice = new Dictionary<int, SmartAtributos>();
-                CargarTelemetriaWmi(smartPorIndice);
+                var lhmData = ExtactLHMData(log);
+                var smartByIndex = new Dictionary<int, SmartAtributos>();
+                LoadWMITelemetry(smartByIndex);
 
                 // ── Mapeo de tipos de bus modernos para esquivar el falso "SCSI" ──
-                var busModerno = new Dictionary<int, string>();
+                var modernBus = new Dictionary<int, string>();
                 try
                 {
                     using var sBus = new ManagementObjectSearcher(@"root\Microsoft\Windows\Storage", "SELECT DeviceId, BusType FROM MSFT_PhysicalDisk");
@@ -65,9 +65,9 @@ namespace CopicanariasServerReport.Services
                         {
                             int busType = Convert.ToInt32(obj["BusType"] ?? 0);
                             // 17 = NVMe, 11 = SATA, 7 = USB, 8 = RAID
-                            if (busType == 17) busModerno[devId] = "NVMe";
-                            else if (busType == 11) busModerno[devId] = "SATA";
-                            else if (busType == 7) busModerno[devId] = "USB";
+                            if (busType == 17) modernBus[devId] = "NVMe";
+                            else if (busType == 11) modernBus[devId] = "SATA";
+                            else if (busType == 7) modernBus[devId] = "USB";
                         }
                     }
                 }
@@ -78,114 +78,114 @@ namespace CopicanariasServerReport.Services
                 {
                     using (d)
                     {
-                        string modelo = d["Model"]?.ToString()?.Trim() ?? "Desconocido";
-                        string estadoPnp = d["Status"]?.ToString() ?? "Desconocido";
+                        string model = d["Model"]?.ToString()?.Trim() ?? "Desconocido";
+                        string pnpState = d["Status"]?.ToString() ?? "Desconocido";
                         
                         long sizeBytes = 0; try { sizeBytes = Convert.ToInt64(d["Size"] ?? 0L); } catch { }
                         int diskIndex = 0; try { diskIndex = Convert.ToInt32(d["Index"] ?? 0); } catch { }
 
                         // ── ASIGNACIÓN INTELIGENTE DE INTERFAZ ──
-                        string tipo = "Desconocido";
-                        string tipoWmiViejo = d["InterfaceType"]?.ToString() ?? "";
+                        string type = "Desconocido";
+                        string oldWMIType = d["InterfaceType"]?.ToString() ?? "";
 
                         // 1. Priorizamos la API moderna (inmune al falso SCSI)
-                        if (busModerno.TryGetValue(diskIndex, out string tipoReal))
-                            tipo = tipoReal;
+                        if (modernBus.TryGetValue(diskIndex, out string realType))
+                            type = realType;
                         // 2. Si falla, miramos si el modelo dice explícitamente NVMe
-                        else if (modelo.IndexOf("NVMe", StringComparison.OrdinalIgnoreCase) >= 0)
-                            tipo = "NVMe";
+                        else if (model.IndexOf("NVMe", StringComparison.OrdinalIgnoreCase) >= 0)
+                            type = "NVMe";
                         // 3. Fallback a lo que diga WMI viejo
                         else
-                            tipo = tipoWmiViejo.ToUpper().Contains("USB") ? "USB" : tipoWmiViejo;
+                            type = oldWMIType.ToUpper().Contains("USB") ? "USB" : oldWMIType;
 
-                        var disco = new DiscoInfo
+                        var disk = new DiskInfo
                         {
-                            Modelo = modelo,
-                            Tipo = tipo,
-                            TamanoGB = sizeBytes / 1073741824.0
+                            Model = model,
+                            Type = type,
+                            SizeGB = sizeBytes / 1073741824.0
                         };
 
-                        if (disco.Tipo == "USB")
-                            disco.Estado = "N/A (Dispositivo extraíble)";
+                        if (disk.Type == "USB")
+                            disk.State = "N/A (Dispositivo extraíble)";
                         else
-                            disco.Estado = estadoPnp.ToUpper() == "OK" ? "Operativo (Conectado)" : $"Error de sistema ({estadoPnp})";
+                            disk.State = pnpState.ToUpper() == "OK" ? "Operativo (Conectado)" : $"Error de sistema ({pnpState})";
 
                         // ── PASO 1: LHM ──
-                        var discoLhm = datosLhm.FirstOrDefault(x =>
-                            x.Name.IndexOf(modelo, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            modelo.IndexOf(x.Name, StringComparison.OrdinalIgnoreCase) >= 0);
+                        var lhmDisk = lhmData.FirstOrDefault(x =>
+                            x.Name.IndexOf(model, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            model.IndexOf(x.Name, StringComparison.OrdinalIgnoreCase) >= 0);
 
-                        if (discoLhm != null)
+                        if (lhmDisk != null)
                         {
-                            disco.Temperatura = discoLhm.Temperature;
-                            disco.HorasEncendido = discoLhm.HoursUsed;
-                            if (discoLhm.HealthPercent.HasValue)
+                            disk.Temperature = lhmDisk.Temperature;
+                            disk.HoursUsed = lhmDisk.HoursUsed;
+                            if (lhmDisk.HealthPercent.HasValue)
                             {
-                                disco.PorcentajeSalud = discoLhm.HealthPercent;
-                                disco.TieneDatosSalud = true;
+                                disk.HealthPercent = lhmDisk.HealthPercent;
+                                disk.HasHealthData = true;
                             }
-                            datosLhm.Remove(discoLhm);
+                            lhmData.Remove(lhmDisk);
                         }
 
                         // ── PASO 2 y 3: FALLBACK + VERIFICACIÓN S.M.A.R.T REAL ──
-                        bool fallaSmartInminente = false;
+                        bool imminentSmartFailure = false;
 
-                        if (smartPorIndice.TryGetValue(diskIndex, out var attrs))
+                        if (smartByIndex.TryGetValue(diskIndex, out var attrs))
                         {
-                            if (!disco.Temperatura.HasValue) disco.Temperatura = attrs.Temperatura;
-                            if (!disco.HorasEncendido.HasValue) disco.HorasEncendido = attrs.HorasEncendido;
-                            if (!disco.TieneDatosSalud && attrs.TieneSalud)
+                            if (!disk.Temperature.HasValue) disk.Temperature = attrs.Temperatura;
+                            if (!disk.HoursUsed.HasValue) disk.HoursUsed = attrs.HorasEncendido;
+                            if (!disk.HasHealthData && attrs.TieneSalud)
                             {
-                                disco.PorcentajeSalud = attrs.PorcentajeSalud;
-                                disco.TieneDatosSalud = true;
+                                disk.HealthPercent = attrs.PorcentajeSalud;
+                                disk.HasHealthData = true;
                             }
-                            if (attrs.FallaInminente) fallaSmartInminente = true; // El Chivato SATA
+                            if (attrs.imminentFailure) imminentSmartFailure = true; // El Chivato SATA
                         }
 
                         var nvmeAttrs = LeerNvmeDirecto(diskIndex);
                         if (nvmeAttrs != null)
                         {
                             // Si logramos leerlo por el protocolo NVMe, ES un NVMe garantizado.
-                            disco.Tipo = "NVMe"; 
+                            disk.Type = "NVMe"; 
 
-                            if (!disco.Temperatura.HasValue) disco.Temperatura = nvmeAttrs.Temperatura;
-                            if (!disco.HorasEncendido.HasValue) disco.HorasEncendido = nvmeAttrs.HorasEncendido;
-                            if (!disco.TieneDatosSalud && nvmeAttrs.TieneSalud)
+                            if (!disk.Temperature.HasValue) disk.Temperature = nvmeAttrs.Temperatura;
+                            if (!disk.HoursUsed.HasValue) disk.HoursUsed = nvmeAttrs.HorasEncendido;
+                            if (!disk.HasHealthData && nvmeAttrs.TieneSalud)
                             {
-                                disco.PorcentajeSalud = nvmeAttrs.PorcentajeSalud;
-                                disco.TieneDatosSalud = true;
+                                disk.HealthPercent = nvmeAttrs.PorcentajeSalud;
+                                disk.HasHealthData = true;
                             }
-                            if (nvmeAttrs.FallaInminente) fallaSmartInminente = true; // El Chivato NVMe
+                            if (nvmeAttrs.imminentFailure) imminentSmartFailure = true; // El Chivato NVMe
                         }
 
                         // ── RESOLUCIÓN DEL ESTADO S.M.A.R.T. ──
-                        if (fallaSmartInminente)
+                        if (imminentSmartFailure)
                         {
-                            disco.Estado = "ALERTA (Fallo S.M.A.R.T. de Hardware)";
+                            disk.State = "ALERTA (Fallo S.M.A.R.T. de Hardware)";
                         }
-                        else if (disco.Tipo == "USB" && (disco.TieneDatosSalud || disco.Temperatura.HasValue))
+                        else if (disk.Type == "USB" && (disk.HasHealthData || disk.Temperature.HasValue))
                         {
-                            disco.Estado = "Operativo (Conectado)";
+                            disk.State = "Operativo (Conectado)";
                         }
 
                         // Inferencia extra: Si el hardware dice "OK" pero la salud es bajísima
-                        if (!fallaSmartInminente && disco.TieneDatosSalud && disco.PorcentajeSalud <= 20)
+                        if (!imminentSmartFailure && disk.HasHealthData && disk.HealthPercent <= 20)
                         {
-                            disco.Estado = "ALERTA (Desgaste Crítico)";
+                            disk.State = "ALERTA (Desgaste Crítico)";
                         }
 
-                        discos.Add(disco);
+                        disks.Add(disk);
                     }
                 }
             });
 
-            ImprimirLogDiscos(discos, log);
-            return discos;
+            printLogicalDisks(disks, log);
+            return disks;
         }
 
-        private static List<LhmDiskData> ExtraerDatosLHM(Action<string> log)
+        private static List<LhmDiskData> ExtactLHMData(Action<string> log)
         {
-            var resultados = new List<LhmDiskData>();
+            var results = new List<LhmDiskData>();
             Computer computer = null;
             try
             {
@@ -226,7 +226,7 @@ namespace CopicanariasServerReport.Services
 
                     if (hourSensor != null) dto.HoursUsed = (int)Math.Round(hourSensor.Value.Value);
 
-                    resultados.Add(dto);
+                    results.Add(dto);
                 }
             }
             catch (Exception ex)
@@ -235,32 +235,32 @@ namespace CopicanariasServerReport.Services
             }
             finally { computer?.Close(); }
 
-            return resultados;
+            return results;
         }
 
-        private static void ImprimirLogDiscos(List<DiscoInfo> discos, Action<string> log)
+        private static void printLogicalDisks(List<DiskInfo> discos, Action<string> log)
         {
             foreach (var d in discos)
             {
-                log($"    · {d.Modelo} [{d.Tipo}, {d.TamanoGB:F0} GB] — {d.Estado}\n");
-                bool hayDetalle = d.Temperatura.HasValue || d.HorasEncendido.HasValue || d.TieneDatosSalud;
+                log($"    · {d.Model} [{d.Type}, {d.SizeGB:F0} GB] — {d.State}\n");
+                bool hayDetalle = d.Temperature.HasValue || d.HoursUsed.HasValue || d.HasHealthData;
 
                 if (hayDetalle)
                 {
                     var p = new List<string>();
-                    if (d.Temperatura.HasValue) p.Add($"Temp: {d.Temperatura}°C");
-                    if (d.HorasEncendido.HasValue) p.Add($"Encendido: {d.HorasEncendido:N0}h");
-                    if (d.TieneDatosSalud) p.Add($"Salud SSD: {d.PorcentajeSalud}%");
+                    if (d.Temperature.HasValue) p.Add($"Temp: {d.Temperature}°C");
+                    if (d.HoursUsed.HasValue) p.Add($"Encendido: {d.HoursUsed:N0}h");
+                    if (d.HasHealthData) p.Add($"Salud SSD: {d.HealthPercent}%");
                     log($"      S.M.A.R.T.: {string.Join("  |  ", p)}\n");
                 }
-                else if (d.Tipo == "USB" || d.Estado.Contains("N/A"))
+                else if (d.Type == "USB" || d.State.Contains("N/A"))
                     log($"      S.M.A.R.T.: No aplica o bloqueado por puente USB.\n");
                 else
                     log($"      S.M.A.R.T.: Bloqueado por fabricante/firmware.\n");
             }
         }
 
-        private static void CargarTelemetriaWmi(Dictionary<int, SmartAtributos> smartPorIndice)
+        private static void LoadWMITelemetry(Dictionary<int, SmartAtributos> smartPorIndice)
         {
             try
             {
@@ -288,7 +288,7 @@ namespace CopicanariasServerReport.Services
                 {
                     int id = ExtraerIndiceDisco(d["InstanceName"]?.ToString() ?? "", idx++);
                     if (!smartPorIndice.TryGetValue(id, out var attrs)) smartPorIndice[id] = attrs = new SmartAtributos();
-                    try { attrs.FallaInminente = (bool)d["PredictFailure"]; } catch { }
+                    try { attrs.imminentFailure = (bool)d["PredictFailure"]; } catch { }
                 }
 
                 using var s3 = new ManagementObjectSearcher(@"root\wmi", "SELECT InstanceName, VendorSpecific FROM MSStorageDriver_FailurePredictData");
@@ -344,7 +344,7 @@ namespace CopicanariasServerReport.Services
                     return new SmartAtributos
                     {
                         // ── LEER EL BYTE "CRITICAL WARNING" DEL NVME ──
-                        FallaInminente = Marshal.ReadByte(pOut, 48 + 0) > 0,
+                        imminentFailure = Marshal.ReadByte(pOut, 48 + 0) > 0,
                         Temperatura = ((Marshal.ReadByte(pOut, 48 + 2) << 8) | Marshal.ReadByte(pOut, 48 + 1)) - 273,
                         PorcentajeSalud = 100 - Marshal.ReadByte(pOut, 48 + 5),
                         TieneSalud = true,
@@ -365,7 +365,7 @@ namespace CopicanariasServerReport.Services
 
         private sealed class SmartAtributos
         {
-            public bool FallaInminente { get; set; }
+            public bool imminentFailure { get; set; }
             public int? Temperatura { get; set; }
             public int? HorasEncendido { get; set; }
             public int? PorcentajeSalud { get; set; }

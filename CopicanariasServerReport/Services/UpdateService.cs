@@ -6,106 +6,106 @@ namespace CopicanariasServerReport.Services
     public static class UpdateService
     {
         // ── Método para ANALIZAR actualizaciones pendientes ──────────────
-        public static async Task AnalizarAsync(DatosServidor reporte, Action<string> log)
+        public static async Task AnalizarAsync(ServerData report, Action<string> log)
         {
-            Exception errorCapturado = null;
+            Exception capturedError = null;
 
             // Delegamos el análisis pesado a un hilo de fondo gestionado por Windows (MTA)
             await Task.Run(() =>
             {
                 try
                 {
-                    reporte.UpdatesEjecutado = true;
-                    reporte.UpdatesImportantes = 0;
-                    reporte.UpdatesOpcionales = 0;
-                    reporte.NombresUpdates.Clear();
+                    report.IsUpdatesExecuted = true;
+                    report.ImportantUpdates = 0;
+                    report.OptionalUpdates = 0;
+                    report.UpdateNames.Clear();
 
                     var session = new UpdateSession();
                     var searcher = session.CreateUpdateSearcher();
                     var result = searcher.Search("IsInstalled=0 and DeploymentAction=*");
 
                     // Listas temporales solo para organizar el log visual
-                    var importantes = new List<string>();
-                    var opcionales = new List<string>();
+                    var importants = new List<string>();
+                    var optionals = new List<string>();
 
                     foreach (IUpdate upd in result.Updates)
                     {
-                        reporte.NombresUpdates.Add(upd.Title); // Mantenemos la lista intacta para el PDF
+                        report.UpdateNames.Add(upd.Title); // Mantenemos la lista intacta para el PDF
                         if (upd.AutoSelectOnWebSites)
                         {
-                            reporte.UpdatesImportantes++;
-                            importantes.Add(upd.Title);
+                            report.ImportantUpdates++;
+                            importants.Add(upd.Title);
                         }
                         else
                         {
-                            reporte.UpdatesOpcionales++;
-                            opcionales.Add(upd.Title);
+                            report.OptionalUpdates++;
+                            optionals.Add(upd.Title);
                         }
                     }
 
                     // ── Detección de reinicio pendiente ──────────────
-                    reporte.RequiereReinicio = false;
+                    report.IsRestartRequired = false;
 
                     try
                     {
                         using var key = Registry.LocalMachine.OpenSubKey(
                             @"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired");
-                        if (key != null) reporte.RequiereReinicio = true;
+                        if (key != null) report.IsRestartRequired = true;
                     }
                     catch { }
 
-                    if (!reporte.RequiereReinicio)
+                    if (!report.IsRestartRequired)
                     {
                         try
                         {
                             var sysInfo = new WUApiLib.SystemInformation();
-                            reporte.RequiereReinicio = sysInfo.RebootRequired;
+                            report.IsRestartRequired = sysInfo.RebootRequired;
                         }
                         catch { }
                     }
 
                     // ── Impresión del Log en pantalla ──────────────
-                    if (reporte.UpdatesImportantes == 0 && reporte.UpdatesOpcionales == 0)
+                    if (report.ImportantUpdates == 0 && report.OptionalUpdates == 0)
                     {
                         log(">>> ✅ Sistema al día. No hay actualizaciones pendientes.\n");
                     }
                     else
                     {
-                        log($">>> ⚠️  Pendientes: {reporte.UpdatesImportantes} importantes | {reporte.UpdatesOpcionales} opcionales\n");
+                        log($">>> ⚠️  Pendientes: {report.ImportantUpdates} importantes | {report.OptionalUpdates} opcionales\n");
 
-                        if (importantes.Count > 0)
+                        if (importants.Count > 0)
                         {
                             log("\n    🔴 IMPORTANTE:\n");
-                            foreach (var nombre in importantes) log($"      · {nombre}\n");
+                            foreach (var nombre in importants) log($"      · {nombre}\n");
                         }
 
-                        if (opcionales.Count > 0)
+                        if (optionals.Count > 0)
                         {
                             log("\n    🔵 OPCIONAL:\n");
-                            foreach (var nombre in opcionales) log($"      · {nombre}\n");
+                            foreach (var nombre in optionals) log($"      · {nombre}\n");
                         }
                         log("\n"); // Espacio al final
                     }
 
-                    if (reporte.RequiereReinicio)
+                    if (report.IsRestartRequired)
                         log(">>> 🔁 REINICIO PENDIENTE — Se requiere reiniciar el equipo.\n");
-                    else if (reporte.UpdatesImportantes > 0 || reporte.UpdatesOpcionales > 0)
+                    else if (report.ImportantUpdates > 0 || report.OptionalUpdates > 0)
                         log(">>> ℹ️  Puedes instalarlas pulsando en 'Instalar Actualizaciones'.\n");
 
                 }
                 catch (Exception ex)
                 {
-                    errorCapturado = ex;
+                    capturedError = ex;
                 }
             });
 
-            if (errorCapturado != null)
+            if (capturedError != null)
             {
                 log(">>> ⚠️  No se pudo analizar Windows Update.\n");
-                log($"    Causa: {errorCapturado.Message}\n");
+                log($"    Causa: {capturedError.Message}\n");
 
                 // Si es el error de Windows Update no disponible, damos una pista real
-                if (errorCapturado.Message.Contains("0x80240438"))
+                if (capturedError.Message.Contains("0x80240438"))
                 {
                     log("    El servicio de Windows Update está ocupado o reiniciándose. Reintenta en unos segundos.\n");
                 }
@@ -113,9 +113,9 @@ namespace CopicanariasServerReport.Services
         }
 
         // ── Método para DESCARGAR E INSTALAR actualizaciones ──────────────
-        public static async Task InstalarAsync(DatosServidor reporte, Action<string> log)
+        public static async Task InstallAsync(ServerData reporte, Action<string> log)
         {
-            Exception errorCapturado = null;
+            Exception capturedError = null;
 
             // Delegamos la instalación a un hilo de fondo gestionado por Windows (MTA)
             await Task.Run(() =>
@@ -181,19 +181,19 @@ namespace CopicanariasServerReport.Services
 
                     if (installResult.RebootRequired)
                     {
-                        reporte.RequiereReinicio = true;
+                        reporte.IsRestartRequired = true;
                         log(">>> 🔁 REINICIO NECESARIO: Debes reiniciar el servidor para aplicar los cambios.\n");
                     }
                 }
                 catch (Exception ex)
                 {
-                    errorCapturado = ex;
+                    capturedError = ex;
                 }
             });
 
-            if (errorCapturado != null)
+            if (capturedError != null)
             {
-                log($">>> ❌ Ocurrió un error durante el proceso de Windows Update:\n    {errorCapturado.Message}\n");
+                log($">>> ❌ Ocurrió un error durante el proceso de Windows Update:\n    {capturedError.Message}\n");
             }
         }
     }

@@ -5,11 +5,11 @@ using System.Windows.Forms;
 
 namespace CopicanariasServerReport
 {
-    public class BotonModerno : Button
+    public class ModernButton : Button
     {
-        private int bordeRadio = 15; // Borde suave
+        private int borderRadio = 15; // Borde suave
 
-        public BotonModerno()
+        public ModernButton()
         {
             this.FlatStyle = FlatStyle.Flat;
             this.FlatAppearance.BorderSize = 0;
@@ -29,8 +29,8 @@ namespace CopicanariasServerReport
             Rectangle rectBorder = Rectangle.Inflate(rectSurface, -1, -1);
             int smoothSize = 2;
 
-            using (GraphicsPath pathSurface = GetFigurePath(rectSurface, bordeRadio))
-            using (GraphicsPath pathBorder = GetFigurePath(rectBorder, bordeRadio - 1))
+            using (GraphicsPath pathSurface = GetFigurePath(rectSurface, borderRadio))
+            using (GraphicsPath pathBorder = GetFigurePath(rectBorder, borderRadio - 1))
             using (Pen penSurface = new Pen(this.Parent.BackColor, smoothSize))
             using (Pen penBorder = new Pen(this.BackColor, 1))
             {

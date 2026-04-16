@@ -16,33 +16,33 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             panelHeader = new Panel();
-            btnToggleLog = new BotonModerno();
+            btnToggleLog = new ModernButton();
             lblTituloCabecera = new Label();
             pictureBoxLogo = new PictureBox();
             lblTecnico = new Label();
-            cmbTecnico = new ComboBox();
-            btnCleanTemp = new BotonModerno();
-            btnSmart = new BotonModerno();
-            btnUpdate = new BotonModerno();
-            btnInstalarUpdates = new BotonModerno();
-            btnAbrirUpdate = new BotonModerno();
-            btnDrivers = new BotonModerno();
-            btnDeviceManager = new BotonModerno();
-            btnReport = new BotonModerno();
-            btnAuto = new BotonModerno();
+            cmbTechnician = new ComboBox();
+            btnCleanTemp = new ModernButton();
+            btnSmart = new ModernButton();
+            btnUpdate = new ModernButton();
+            btnInstallUpdates = new ModernButton();
+            btnOpenUpdate = new ModernButton();
+            btnDrivers = new ModernButton();
+            btnDeviceManager = new ModernButton();
+            btnReport = new ModernButton();
+            btnAuto = new ModernButton();
             rtbLog = new RichTextBox();
-            panelDF = new Panel();
+            DfPanel = new Panel();
             pictureBox1 = new PictureBox();
             lblDfTitulo = new Label();
             panelDfLinea = new Panel();
-            chkDigitalizacion = new CheckBox();
-            chkFirmas = new CheckBox();
-            lblFirmasRestantes = new Label();
-            numFirmas = new NumericUpDown();
-            chkCertificados = new CheckBox();
-            lblNumCerts = new Label();
-            numCertificados = new NumericUpDown();
-            panelCertsDinamico = new Panel();
+            checkDigitization = new CheckBox();
+            chkSignatures = new CheckBox();
+            lblRemainingSignatures = new Label();
+            SignaturesNum = new NumericUpDown();
+            chkCertificates = new CheckBox();
+            lblCertsNum = new Label();
+            CertificatesNum = new NumericUpDown();
+            DynamicCertsPanel = new Panel();
             pnlCardUpd = new Panel();
             lblIconUpd = new Label();
             lblTitUpd = new Label();
@@ -59,13 +59,13 @@
             lblIconSmart = new Label();
             lblTitSmart = new Label();
             lblValSmart = new Label();
-            flpDiscos = new FlowLayoutPanel();
+            flpDisks = new FlowLayoutPanel();
             panelHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).BeginInit();
-            panelDF.SuspendLayout();
+            DfPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)numFirmas).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)numCertificados).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)SignaturesNum).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)CertificatesNum).BeginInit();
             pnlCardUpd.SuspendLayout();
             pnlCardDrv.SuspendLayout();
             pnlCardTmp.SuspendLayout();
@@ -132,13 +132,13 @@
             // 
             // cmbTecnico
             // 
-            cmbTecnico.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbTecnico.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            cmbTecnico.Location = new Point(30, 135);
-            cmbTecnico.Name = "cmbTecnico";
-            cmbTecnico.Size = new Size(300, 28);
-            cmbTecnico.TabIndex = 8;
-            cmbTecnico.SelectedIndexChanged += cmbTecnico_SelectedIndexChanged;
+            cmbTechnician.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbTechnician.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            cmbTechnician.Location = new Point(30, 135);
+            cmbTechnician.Name = "cmbTecnico";
+            cmbTechnician.Size = new Size(300, 28);
+            cmbTechnician.TabIndex = 8;
+            cmbTechnician.SelectedIndexChanged += cmbTecnico_SelectedIndexChanged;
             // 
             // btnCleanTemp
             // 
@@ -184,32 +184,32 @@
             // 
             // btnInstalarUpdates
             // 
-            btnInstalarUpdates.BackColor = Color.FromArgb(34, 197, 94);
-            btnInstalarUpdates.FlatStyle = FlatStyle.Flat;
-            btnInstalarUpdates.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            btnInstalarUpdates.ForeColor = Color.White;
-            btnInstalarUpdates.Location = new Point(30, 351);
-            btnInstalarUpdates.Name = "btnInstalarUpdates";
-            btnInstalarUpdates.Size = new Size(300, 40);
-            btnInstalarUpdates.TabIndex = 17;
-            btnInstalarUpdates.Text = "📥 Instalar Actualizaciones 📥";
-            btnInstalarUpdates.UseVisualStyleBackColor = false;
-            btnInstalarUpdates.Click += btnInstalarUpdates_Click;
+            btnInstallUpdates.BackColor = Color.FromArgb(34, 197, 94);
+            btnInstallUpdates.FlatStyle = FlatStyle.Flat;
+            btnInstallUpdates.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnInstallUpdates.ForeColor = Color.White;
+            btnInstallUpdates.Location = new Point(30, 351);
+            btnInstallUpdates.Name = "btnInstalarUpdates";
+            btnInstallUpdates.Size = new Size(300, 40);
+            btnInstallUpdates.TabIndex = 17;
+            btnInstallUpdates.Text = "📥 Instalar Actualizaciones 📥";
+            btnInstallUpdates.UseVisualStyleBackColor = false;
+            btnInstallUpdates.Click += btnInstalarUpdates_Click;
             // 
             // btnAbrirUpdate
             // 
-            btnAbrirUpdate.BackColor = Color.White;
-            btnAbrirUpdate.FlatAppearance.BorderColor = Color.FromArgb(17, 35, 108);
-            btnAbrirUpdate.FlatStyle = FlatStyle.Flat;
-            btnAbrirUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnAbrirUpdate.ForeColor = Color.FromArgb(17, 35, 108);
-            btnAbrirUpdate.Location = new Point(30, 397);
-            btnAbrirUpdate.Name = "btnAbrirUpdate";
-            btnAbrirUpdate.Size = new Size(300, 35);
-            btnAbrirUpdate.TabIndex = 7;
-            btnAbrirUpdate.Text = "Abrir Panel de Windows Update";
-            btnAbrirUpdate.UseVisualStyleBackColor = false;
-            btnAbrirUpdate.Click += btnAbrirUpdate_Click;
+            btnOpenUpdate.BackColor = Color.White;
+            btnOpenUpdate.FlatAppearance.BorderColor = Color.FromArgb(17, 35, 108);
+            btnOpenUpdate.FlatStyle = FlatStyle.Flat;
+            btnOpenUpdate.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnOpenUpdate.ForeColor = Color.FromArgb(17, 35, 108);
+            btnOpenUpdate.Location = new Point(30, 397);
+            btnOpenUpdate.Name = "btnAbrirUpdate";
+            btnOpenUpdate.Size = new Size(300, 35);
+            btnOpenUpdate.TabIndex = 7;
+            btnOpenUpdate.Text = "Abrir Panel de Windows Update";
+            btnOpenUpdate.UseVisualStyleBackColor = false;
+            btnOpenUpdate.Click += btnAbrirUpdate_Click;
             // 
             // btnDrivers
             // 
@@ -283,23 +283,23 @@
             // 
             // panelDF
             // 
-            panelDF.BackColor = Color.White;
-            panelDF.Controls.Add(pictureBox1);
-            panelDF.Controls.Add(lblDfTitulo);
-            panelDF.Controls.Add(panelDfLinea);
-            panelDF.Controls.Add(chkDigitalizacion);
-            panelDF.Controls.Add(chkFirmas);
-            panelDF.Controls.Add(lblFirmasRestantes);
-            panelDF.Controls.Add(numFirmas);
-            panelDF.Controls.Add(chkCertificados);
-            panelDF.Controls.Add(lblNumCerts);
-            panelDF.Controls.Add(numCertificados);
-            panelDF.Controls.Add(panelCertsDinamico);
-            panelDF.Location = new Point(30, 626);
-            panelDF.Name = "panelDF";
-            panelDF.Size = new Size(760, 122);
-            panelDF.TabIndex = 4;
-            panelDF.Visible = false;
+            DfPanel.BackColor = Color.White;
+            DfPanel.Controls.Add(pictureBox1);
+            DfPanel.Controls.Add(lblDfTitulo);
+            DfPanel.Controls.Add(panelDfLinea);
+            DfPanel.Controls.Add(checkDigitization);
+            DfPanel.Controls.Add(chkSignatures);
+            DfPanel.Controls.Add(lblRemainingSignatures);
+            DfPanel.Controls.Add(SignaturesNum);
+            DfPanel.Controls.Add(chkCertificates);
+            DfPanel.Controls.Add(lblCertsNum);
+            DfPanel.Controls.Add(CertificatesNum);
+            DfPanel.Controls.Add(DynamicCertsPanel);
+            DfPanel.Location = new Point(30, 626);
+            DfPanel.Name = "panelDF";
+            DfPanel.Size = new Size(760, 122);
+            DfPanel.TabIndex = 4;
+            DfPanel.Visible = false;
             // 
             // pictureBox1
             // 
@@ -332,94 +332,94 @@
             // 
             // chkDigitalizacion
             // 
-            chkDigitalizacion.AutoSize = true;
-            chkDigitalizacion.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            chkDigitalizacion.Location = new Point(10, 42);
-            chkDigitalizacion.Name = "chkDigitalizacion";
-            chkDigitalizacion.Size = new Size(246, 24);
-            chkDigitalizacion.TabIndex = 3;
-            chkDigitalizacion.Text = "¿Tiene digitalización certificada?";
-            chkDigitalizacion.CheckedChanged += chkDigitalizacion_CheckedChanged;
+            checkDigitization.AutoSize = true;
+            checkDigitization.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            checkDigitization.Location = new Point(10, 42);
+            checkDigitization.Name = "chkDigitalizacion";
+            checkDigitization.Size = new Size(246, 24);
+            checkDigitization.TabIndex = 3;
+            checkDigitization.Text = "¿Tiene digitalización certificada?";
+            checkDigitization.CheckedChanged += checkDigitization_CheckedChanged;
             // 
             // chkFirmas
             // 
-            chkFirmas.AutoSize = true;
-            chkFirmas.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            chkFirmas.Location = new Point(10, 74);
-            chkFirmas.Name = "chkFirmas";
-            chkFirmas.Size = new Size(221, 24);
-            chkFirmas.TabIndex = 4;
-            chkFirmas.Text = "Tiene firmas de DF-Signature";
-            chkFirmas.CheckedChanged += chkFirmas_CheckedChanged;
+            chkSignatures.AutoSize = true;
+            chkSignatures.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            chkSignatures.Location = new Point(10, 74);
+            chkSignatures.Name = "chkFirmas";
+            chkSignatures.Size = new Size(221, 24);
+            chkSignatures.TabIndex = 4;
+            chkSignatures.Text = "Tiene firmas de DF-Signature";
+            chkSignatures.CheckedChanged += chkSignatures_CheckedChanged;
             // 
             // lblFirmasRestantes
             // 
-            lblFirmasRestantes.AutoSize = true;
-            lblFirmasRestantes.Enabled = false;
-            lblFirmasRestantes.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            lblFirmasRestantes.ForeColor = Color.DimGray;
-            lblFirmasRestantes.Location = new Point(242, 77);
-            lblFirmasRestantes.Name = "lblFirmasRestantes";
-            lblFirmasRestantes.Size = new Size(106, 17);
-            lblFirmasRestantes.TabIndex = 5;
-            lblFirmasRestantes.Text = "Firmas restantes:";
+            lblRemainingSignatures.AutoSize = true;
+            lblRemainingSignatures.Enabled = false;
+            lblRemainingSignatures.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            lblRemainingSignatures.ForeColor = Color.DimGray;
+            lblRemainingSignatures.Location = new Point(242, 77);
+            lblRemainingSignatures.Name = "lblFirmasRestantes";
+            lblRemainingSignatures.Size = new Size(106, 17);
+            lblRemainingSignatures.TabIndex = 5;
+            lblRemainingSignatures.Text = "Firmas restantes:";
             // 
             // numFirmas
             // 
-            numFirmas.Enabled = false;
-            numFirmas.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            numFirmas.Location = new Point(352, 74);
-            numFirmas.Maximum = new decimal(new int[] { 99999, 0, 0, 0 });
-            numFirmas.Name = "numFirmas";
-            numFirmas.Size = new Size(90, 27);
-            numFirmas.TabIndex = 6;
+            SignaturesNum.Enabled = false;
+            SignaturesNum.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            SignaturesNum.Location = new Point(352, 74);
+            SignaturesNum.Maximum = new decimal(new int[] { 99999, 0, 0, 0 });
+            SignaturesNum.Name = "numFirmas";
+            SignaturesNum.Size = new Size(90, 27);
+            SignaturesNum.TabIndex = 6;
             // 
             // chkCertificados
             // 
-            chkCertificados.AutoSize = true;
-            chkCertificados.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            chkCertificados.Location = new Point(10, 108);
-            chkCertificados.Name = "chkCertificados";
-            chkCertificados.Size = new Size(206, 24);
-            chkCertificados.TabIndex = 7;
-            chkCertificados.Text = "Tiene certificados digitales";
-            chkCertificados.CheckedChanged += chkCertificados_CheckedChanged;
+            chkCertificates.AutoSize = true;
+            chkCertificates.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            chkCertificates.Location = new Point(10, 108);
+            chkCertificates.Name = "chkCertificados";
+            chkCertificates.Size = new Size(206, 24);
+            chkCertificates.TabIndex = 7;
+            chkCertificates.Text = "Tiene certificados digitales";
+            chkCertificates.CheckedChanged += chkCertificates_CheckedChanged;
             // 
             // lblNumCerts
             // 
-            lblNumCerts.AutoSize = true;
-            lblNumCerts.Enabled = false;
-            lblNumCerts.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            lblNumCerts.ForeColor = Color.DimGray;
-            lblNumCerts.Location = new Point(242, 111);
-            lblNumCerts.Name = "lblNumCerts";
-            lblNumCerts.Size = new Size(117, 17);
-            lblNumCerts.TabIndex = 8;
-            lblNumCerts.Text = "Nº de certificados:";
+            lblCertsNum.AutoSize = true;
+            lblCertsNum.Enabled = false;
+            lblCertsNum.Font = new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            lblCertsNum.ForeColor = Color.DimGray;
+            lblCertsNum.Location = new Point(242, 111);
+            lblCertsNum.Name = "lblNumCerts";
+            lblCertsNum.Size = new Size(117, 17);
+            lblCertsNum.TabIndex = 8;
+            lblCertsNum.Text = "Nº de certificados:";
             // 
             // numCertificados
             // 
-            numCertificados.Enabled = false;
-            numCertificados.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            numCertificados.Location = new Point(365, 108);
-            numCertificados.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
-            numCertificados.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            numCertificados.Name = "numCertificados";
-            numCertificados.Size = new Size(60, 27);
-            numCertificados.TabIndex = 9;
-            numCertificados.Value = new decimal(new int[] { 1, 0, 0, 0 });
-            numCertificados.ValueChanged += numCertificados_ValueChanged;
+            CertificatesNum.Enabled = false;
+            CertificatesNum.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            CertificatesNum.Location = new Point(365, 108);
+            CertificatesNum.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
+            CertificatesNum.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            CertificatesNum.Name = "numCertificados";
+            CertificatesNum.Size = new Size(60, 27);
+            CertificatesNum.TabIndex = 9;
+            CertificatesNum.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            CertificatesNum.ValueChanged += CertificatesNum_ValueChanged;
             // 
             // panelCertsDinamico
             // 
-            panelCertsDinamico.AutoScroll = true;
-            panelCertsDinamico.BackColor = Color.FromArgb(240, 242, 245);
-            panelCertsDinamico.BorderStyle = BorderStyle.FixedSingle;
-            panelCertsDinamico.Location = new Point(10, 140);
-            panelCertsDinamico.Name = "panelCertsDinamico";
-            panelCertsDinamico.Size = new Size(740, 112);
-            panelCertsDinamico.TabIndex = 10;
-            panelCertsDinamico.Visible = false;
+            DynamicCertsPanel.AutoScroll = true;
+            DynamicCertsPanel.BackColor = Color.FromArgb(240, 242, 245);
+            DynamicCertsPanel.BorderStyle = BorderStyle.FixedSingle;
+            DynamicCertsPanel.Location = new Point(10, 140);
+            DynamicCertsPanel.Name = "panelCertsDinamico";
+            DynamicCertsPanel.Size = new Size(740, 112);
+            DynamicCertsPanel.TabIndex = 10;
+            DynamicCertsPanel.Visible = false;
             // 
             // pnlCardUpd
             // 
@@ -559,7 +559,7 @@
             pnlCardSmart.Controls.Add(lblIconSmart);
             pnlCardSmart.Controls.Add(lblTitSmart);
             pnlCardSmart.Controls.Add(lblValSmart);
-            pnlCardSmart.Controls.Add(flpDiscos);
+            pnlCardSmart.Controls.Add(flpDisks);
             pnlCardSmart.Location = new Point(350, 305);
             pnlCardSmart.Name = "pnlCardSmart";
             pnlCardSmart.Size = new Size(440, 227);
@@ -600,12 +600,12 @@
             // 
             // flpDiscos
             // 
-            flpDiscos.AutoScroll = true;
-            flpDiscos.BackColor = Color.FromArgb(250, 250, 250);
-            flpDiscos.Location = new Point(15, 70);
-            flpDiscos.Name = "flpDiscos";
-            flpDiscos.Size = new Size(410, 142);
-            flpDiscos.TabIndex = 3;
+            flpDisks.AutoScroll = true;
+            flpDisks.BackColor = Color.FromArgb(250, 250, 250);
+            flpDisks.Location = new Point(15, 70);
+            flpDisks.Name = "flpDiscos";
+            flpDisks.Size = new Size(410, 142);
+            flpDisks.TabIndex = 3;
             // 
             // Form1
             // 
@@ -617,12 +617,12 @@
             Controls.Add(pnlCardDrv);
             Controls.Add(pnlCardTmp);
             Controls.Add(pnlCardSmart);
-            Controls.Add(panelDF);
+            Controls.Add(DfPanel);
             Controls.Add(btnDeviceManager);
             Controls.Add(btnDrivers);
-            Controls.Add(btnAbrirUpdate);
-            Controls.Add(btnInstalarUpdates);
-            Controls.Add(cmbTecnico);
+            Controls.Add(btnOpenUpdate);
+            Controls.Add(btnInstallUpdates);
+            Controls.Add(cmbTechnician);
             Controls.Add(lblTecnico);
             Controls.Add(btnAuto);
             Controls.Add(rtbLog);
@@ -641,11 +641,11 @@
             panelHeader.ResumeLayout(false);
             panelHeader.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxLogo).EndInit();
-            panelDF.ResumeLayout(false);
-            panelDF.PerformLayout();
+            DfPanel.ResumeLayout(false);
+            DfPanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
-            ((System.ComponentModel.ISupportInitialize)numFirmas).EndInit();
-            ((System.ComponentModel.ISupportInitialize)numCertificados).EndInit();
+            ((System.ComponentModel.ISupportInitialize)SignaturesNum).EndInit();
+            ((System.ComponentModel.ISupportInitialize)CertificatesNum).EndInit();
             pnlCardUpd.ResumeLayout(false);
             pnlCardUpd.PerformLayout();
             pnlCardDrv.ResumeLayout(false);
@@ -663,31 +663,31 @@
         private Panel panelHeader;
         private Label lblTituloCabecera;
         private PictureBox pictureBoxLogo;
-        private BotonModerno btnToggleLog;
+        private ModernButton btnToggleLog;
         private Label lblTecnico;
-        private ComboBox cmbTecnico;
-        private BotonModerno btnCleanTemp;
-        private BotonModerno btnSmart;
-        private BotonModerno btnUpdate;
-        private BotonModerno btnInstalarUpdates;
-        private BotonModerno btnAbrirUpdate;
-        private BotonModerno btnReport;
+        private ComboBox cmbTechnician;
+        private ModernButton btnCleanTemp;
+        private ModernButton btnSmart;
+        private ModernButton btnUpdate;
+        private ModernButton btnInstallUpdates;
+        private ModernButton btnOpenUpdate;
+        private ModernButton btnReport;
         private RichTextBox rtbLog;
-        private BotonModerno btnAuto;
-        private BotonModerno btnDrivers;
-        private BotonModerno btnDeviceManager;
+        private ModernButton btnAuto;
+        private ModernButton btnDrivers;
+        private ModernButton btnDeviceManager;
 
-        private Panel panelDF;
+        private Panel DfPanel;
         private Label lblDfTitulo;
         private Panel panelDfLinea;
-        private CheckBox chkDigitalizacion;
-        private CheckBox chkFirmas;
-        private Label lblFirmasRestantes;
-        private NumericUpDown numFirmas;
-        private CheckBox chkCertificados;
-        private Label lblNumCerts;
-        private NumericUpDown numCertificados;
-        private Panel panelCertsDinamico;
+        private CheckBox checkDigitization;
+        private CheckBox chkSignatures;
+        private Label lblRemainingSignatures;
+        private NumericUpDown SignaturesNum;
+        private CheckBox chkCertificates;
+        private Label lblCertsNum;
+        private NumericUpDown CertificatesNum;
+        private Panel DynamicCertsPanel;
         private PictureBox pictureBox1;
 
         // --- DASHBOARD CONTROLS ---
@@ -710,6 +710,6 @@
         private Label lblIconSmart;
         private Label lblTitSmart;
         private Label lblValSmart;
-        private FlowLayoutPanel flpDiscos;
+        private FlowLayoutPanel flpDisks;
     }
 }

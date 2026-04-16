@@ -9,10 +9,10 @@ namespace CopicanariasServerReport.Pdf
     {
         // Genera el documento PDF en 'ruta' a partir de los datos del informe.
         // Método síncrono: debe llamarse desde Task.Run para no bloquear la UI.
-        public static void Generar(string ruta, DatosServidor r, byte[] logoBytes, byte[] dfLogoBytes = null)
+        public static void Generate(string path, ServerData r, byte[] logoBytes, byte[] dfLogoBytes = null)
         {
             // PROCESAMOS EL LOGO PARA HACERLO SEMITRANSPARENTE (6% de opacidad)
-            byte[] watermarkBytes = HacerImagenTransparente(logoBytes, 0.06f);
+            byte[] watermarkBytes = MakeImageTransparent(logoBytes, 0.06f);
 
             Document.Create(container =>
             {
@@ -34,13 +34,13 @@ namespace CopicanariasServerReport.Pdf
                     page.Header().Column(hdr =>
                     {
                         // LÓGICA DE NOMBRES Y DEPARTAMENTOS
-                        bool esTecnicoDF = r.TecnicoResponsable != null && r.TecnicoResponsable.Contains("(DF-Server)");
+                        bool isDfTechnician = r.AssignedTechnician != null && r.AssignedTechnician.Contains("(DF-Server)");
 
                         // 1. Nombre del departamento
-                        string nombreDepartamento = esTecnicoDF ? "Departamento de DF-Server" : "Departamento de Sistemas";
+                        string departamentName = isDfTechnician ? "Departamento de DF-Server" : "Departamento de Sistemas";
 
                         // 2. Limpiar el nombre del técnico (quitamos " (DF-Server)" si existe)
-                        string tecnicoLimpio = r.TecnicoResponsable?.Replace(" (DF-Server)", "").Trim() ?? "No especificado";
+                        string cleanTechnician = r.AssignedTechnician?.Replace(" (DF-Server)", "").Trim() ?? "No especificado";
 
                         hdr.Item().Row(row =>
                         {
@@ -50,18 +50,18 @@ namespace CopicanariasServerReport.Pdf
                                     .SemiBold().FontSize(15).FontColor(Colors.Blue.Darken4);
 
                                 // Usamos el nombre del departamento dinámico
-                                txt.Item().Text($"Grupo Copicanarias — {nombreDepartamento}")
+                                txt.Item().Text($"Grupo Copicanarias — {departamentName}")
                                     .FontSize(11).FontColor(Colors.Grey.Darken1);
 
                                 // Usamos el nombre del técnico limpio
-                                txt.Item().Text($"Técnico responsable: {tecnicoLimpio}")
+                                txt.Item().Text($"Técnico responsable: {cleanTechnician}")
                                     .FontSize(9).FontColor(Colors.Grey.Darken2);
                             });
                             row.ConstantItem(100).AlignRight().Height(40).Image(logoBytes).FitArea();
                         });
                         hdr.Item().PaddingTop(5).LineHorizontal(2).LineColor(Colors.Blue.Darken3);
                         hdr.Item().PaddingTop(3).AlignRight()
-                            .Text($"Fecha de emisión: {r.FechaHora}   |   Equipo: {r.NombreServidor}")
+                            .Text($"Fecha de emisión: {r.DateTimeString}   |   Equipo: {r.ServerName}")
                             .FontSize(7.5f).FontColor(Colors.Grey.Medium);
                     });
 
@@ -69,105 +69,105 @@ namespace CopicanariasServerReport.Pdf
                     page.Content().PaddingVertical(0.3f, Unit.Centimetre).Column(col =>
                     {
                         // ── 1. SISTEMA Y HARDWARE ────────────────────────
-                        Seccion(col, "1. Sistema y Hardware");
+                        Section(col, "1. Sistema y Hardware");
                         col.Item().Table(t =>
                         {
                             t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
-                            Fila(t, "Hostname / OS:",
-                                $"{r.NombreServidor} · {r.SistemaOperativo} ({r.Arquitectura})");
-                            Fila(t, "Memoria RAM:", r.MemoriaRAM);
-                            Fila(t, "Usuario activo:", r.UsuarioActivo);
+                            Row(t, "Hostname / OS:",
+                                $"{r.ServerName} · {r.OS} ({r.Architecture})");
+                            Row(t, "Memoria RAM:", r.RAM);
+                            Row(t, "Usuario activo:", r.ActiveUser);
                         });
 
                         // ── 2. SEGURIDAD ──────────────────────────────────
-                        Seccion(col, "2. Seguridad");
+                        Section(col, "2. Seguridad");
                         col.Item().Table(t =>
                         {
                             t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
-                            Fila(t, "Antivirus:", r.AntivirusNombre);
+                            Row(t, "Antivirus:", r.AntivirusName);
 
-                            var cAv = (r.AntivirusEstado.Contains("Activo") || r.AntivirusEstado.Contains("Monitori"))
+                            var cAv = (r.AntivirusState.Contains("Activo") || r.AntivirusState.Contains("Monitori"))
                                 ? Colors.Green.Darken2 : Colors.Red.Darken2;
-                            FilaColor(t, "Estado:", r.AntivirusEstado, cAv);
+                            RowColor(t, "Estado:", r.AntivirusState, cAv);
 
-                            if (!string.IsNullOrWhiteSpace(r.AntivirusRuta))
-                                Fila(t, "Ruta ejecutable:", r.AntivirusRuta, 8);
+                            if (!string.IsNullOrWhiteSpace(r.AntivirusPath))
+                                Row(t, "Ruta ejecutable:", r.AntivirusPath, 8);
 
                             // Solo mostramos la fila del Backup si el técnico es de DF-Server
-                            if (r.EsTecnicoDf)
+                            if (r.IsDfTechnician)
                             {
-                                var cBackup = r.EstadoBackup.Contains("OK") ? Colors.Green.Darken2
-                                            : r.EstadoBackup.Contains("Error") ? Colors.Red.Darken2
+                                var cBackup = r.BackupState.Contains("OK") ? Colors.Green.Darken2
+                                            : r.BackupState.Contains("Error") ? Colors.Red.Darken2
                                             : Colors.Grey.Darken2;
-                                FilaColor(t, "Backup Windows:", $"{r.EstadoBackup}  [{r.FechaUltimoBackup}]", cBackup);
+                                RowColor(t, "Backup Windows:", $"{r.BackupState}  [{r.LastBackupDate}]", cBackup);
                             }
                         });
 
                         // ── 3. WINDOWS UPDATE ─────────────────────────────
-                        Seccion(col, "3. Windows Update");
+                        Section(col, "3. Windows Update");
                         col.Item().Table(t =>
                         {
                             t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
 
-                            if (!r.UpdatesEjecutado)
+                            if (!r.IsUpdatesExecuted)
                             {
-                                Fila(t, "Estado:", "No analizado en esta sesión.");
+                                Row(t, "Estado:", "No analizado en esta sesión.");
                             }
-                            else if (r.UpdatesImportantes == 0 && r.UpdatesOpcionales == 0)
+                            else if (r.ImportantUpdates == 0 && r.OptionalUpdates == 0)
                             {
-                                FilaColor(t, "Estado:", "✅ Sistema completamente actualizado.", Colors.Green.Darken2);
+                                RowColor(t, "Estado:", "✅ Sistema completamente actualizado.", Colors.Green.Darken2);
                             }
                             else
                             {
-                                FilaColor(t, "Estado:",
-                                    $"⚠️  {r.UpdatesImportantes} importantes  |  {r.UpdatesOpcionales} opcionales pendientes",
+                                RowColor(t, "Estado:",
+                                    $"⚠️  {r.ImportantUpdates} importantes  |  {r.OptionalUpdates} opcionales pendientes",
                                     Colors.Orange.Darken3);
 
-                                if (r.NombresUpdates.Count > 0)
+                                if (r.UpdateNames.Count > 0)
                                 {
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
                                         .Text("Actualizaciones pendientes:").SemiBold();
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Column(lc =>
                                     {
-                                        foreach (var u in r.NombresUpdates)
+                                        foreach (var u in r.UpdateNames)
                                             lc.Item().Text($"• {u}").FontSize(8);
                                     });
                                 }
                             }
 
-                            if (r.UpdatesEjecutado)
+                            if (r.IsUpdatesExecuted)
                             {
-                                var cReboot = r.RequiereReinicio ? Colors.Red.Darken2 : Colors.Green.Darken2;
-                                FilaColor(t, "Reinicio pendiente:",
-                                    r.RequiereReinicio ? "⚠️  Sí — Se debe reiniciar el equipo" : "✅ No requerido",
+                                var cReboot = r.IsRestartRequired ? Colors.Red.Darken2 : Colors.Green.Darken2;
+                                RowColor(t, "Reinicio pendiente:",
+                                    r.IsRestartRequired ? "⚠️  Sí — Se debe reiniciar el equipo" : "✅ No requerido",
                                     cReboot);
                             }
                         });
 
                         // ── 4. SOFTWARE CLAVE ─────────────────────────────
-                        Seccion(col, "4. Software Clave");
+                        Section(col, "4. Software Clave");
                         col.Item().Table(t =>
                         {
                             t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
-                            bool javaInstalado = !string.IsNullOrEmpty(r.VersionJava)
-                                                 && !r.VersionJava.Contains("No instalado");
-                            var cJava = !javaInstalado ? Colors.Grey.Darken1
-                                      : r.JavaAlDia ? Colors.Green.Darken2
+                            bool isJavaInstalled = !string.IsNullOrEmpty(r.JavaVersion)
+                                                 && !r.JavaVersion.Contains("No instalado");
+                            var cJava = !isJavaInstalled ? Colors.Grey.Darken1
+                                      : r.IsJavaUpToDate ? Colors.Green.Darken2
                                       : Colors.Orange.Darken3;
-                            FilaColor(t, "Java (JRE):", r.VersionJava, cJava);
+                            RowColor(t, "Java (JRE):", r.JavaVersion, cJava);
                             if (!string.IsNullOrEmpty(r.JavaVersionOnline))
-                                Fila(t, "Última versión:", r.JavaVersionOnline);
+                                Row(t, "Última versión:", r.JavaVersionOnline);
                         });
 
                         // ── 5. LIMPIEZA ───────────────────────────────────
-                        Seccion(col, "5. Limpieza de Archivos Temporales");
-                        if (!r.LimpiezaEjecutada)
+                        Section(col, "5. Limpieza de Archivos Temporales");
+                        if (!r.IsCleanupExecuted)
                         {
                             col.Item().PaddingLeft(4)
                                 .Text("— Limpieza no realizada en esta sesión.")
                                 .FontColor(Colors.Grey.Darken2).Italic();
                         }
-                        else if (r.ArchivosBorrados == 0)
+                        else if (r.DeletedFiles == 0)
                         {
                             col.Item().PaddingLeft(4)
                                 .Text("✅ Limpieza ejecutada — No se encontraron archivos temporales.")
@@ -178,17 +178,17 @@ namespace CopicanariasServerReport.Pdf
                             col.Item().Table(t =>
                             {
                                 t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
-                                string espacio = r.BytesLiberados > 1073741824
-                                    ? $"{r.BytesLiberados / 1073741824.0:F2} GB"
-                                    : $"{r.BytesLiberados / 1048576.0:F2} MB";
-                                Fila(t, "Archivos eliminados:", $"{r.ArchivosBorrados} archivos  ({espacio} liberados)");
-                                Fila(t, "Áreas limpiadas:", "Temp de usuarios  ·  Temp Windows  ·  Caché Windows Update");
+                                string espacio = r.FreedBytes > 1073741824
+                                    ? $"{r.FreedBytes / 1073741824.0:F2} GB"
+                                    : $"{r.FreedBytes / 1048576.0:F2} MB";
+                                Row(t, "Archivos eliminados:", $"{r.DeletedFiles} archivos  ({espacio} liberados)");
+                                Row(t, "Áreas limpiadas:", "Temp de usuarios  ·  Temp Windows  ·  Caché Windows Update");
                             });
                         }
 
                         // ── 6. INTERFACES DE RED ──────────────────────────
-                        Seccion(col, "6. Interfaces de Red");
-                        if (r.InterfacesRed.Count == 0)
+                        Section(col, "6. Interfaces de Red");
+                        if (r.NetworkInterfaces.Count == 0)
                         {
                             col.Item().PaddingLeft(4).Text("No se detectaron interfaces de red activas.")
                                 .FontColor(Colors.Red.Medium);
@@ -207,18 +207,18 @@ namespace CopicanariasServerReport.Pdf
                                 foreach (var h in new[] { "Adaptador", "Tipo", "Velocidad", "Estado" })
                                     t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(8);
 
-                                foreach (var rr in r.InterfacesRed)
+                                foreach (var rr in r.NetworkInterfaces)
                                 {
-                                    var cEst = rr.Estado == "Conectado" ? Colors.Green.Darken2 : Colors.Grey.Darken1;
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.Nombre).FontSize(8);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.Tipo).FontSize(8);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.Velocidad).FontSize(8);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.Estado).FontColor(cEst).FontSize(8);
+                                    var cEst = rr.State == "Conectado" ? Colors.Green.Darken2 : Colors.Grey.Darken1;
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.Name).FontSize(8);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.Type).FontSize(8);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.Speed).FontSize(8);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(rr.State).FontColor(cEst).FontSize(8);
                                 }
                             });
                         }
 
-                        if (r.UnidadesRed.Count > 0)
+                        if (r.NetworkDrives.Count > 0)
                         {
                             col.Item().PaddingTop(7).PaddingBottom(2)
                                 .Text("Unidades de Red Mapeadas:").SemiBold().FontSize(9);
@@ -239,47 +239,47 @@ namespace CopicanariasServerReport.Pdf
                                 foreach (var h in new[] { "Letra", "Ruta de red", "Total", "Libre", "% Libre", "Uso visual" })
                                     t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(8);
 
-                                foreach (var u in r.UnidadesRed)
+                                foreach (var u in r.NetworkDrives)
                                 {
                                     // Comprobamos si se pudo leer el espacio. Si TotalGB es 0, asumimos que no hay acceso.
-                                    bool accesoOk = u.TotalGB > 0;
-                                    bool critico = accesoOk && u.PorcentajeLibre < 20;
-                                    var cTexto = critico ? Colors.Red.Darken2 : Colors.Black;
-                                    var cBarra = critico ? Colors.Red.Medium : Colors.Blue.Medium;
+                                    bool accessOk = u.TotalGB > 0;
+                                    bool critical = accessOk && u.FreePercent < 20;
+                                    var cText = critical ? Colors.Red.Darken2 : Colors.Black;
+                                    var cBar = critical ? Colors.Red.Medium : Colors.Blue.Medium;
 
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                        .Text(u.Letra).SemiBold().FontSize(8);
+                                        .Text(u.Letter).SemiBold().FontSize(8);
 
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                        .Text(u.Ruta).FontSize(8);
+                                        .Text(u.Path).FontSize(8);
 
-                                    if (accesoOk)
+                                    if (accessOk)
                                     {
                                         t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
                                             .Text($"{u.TotalGB:F1} GB").FontSize(8);
 
                                         t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                            .Text($"{u.LibreGB:F1} GB").FontColor(cTexto).FontSize(8);
+                                            .Text($"{u.FreeGB:F1} GB").FontColor(cText).FontSize(8);
 
                                         var pctText = t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                            .Text($"{u.PorcentajeLibre:F1}%{(critico ? " ⚠️" : "")}").FontColor(cTexto).FontSize(8);
-                                        if (critico) pctText.SemiBold();
+                                            .Text($"{u.FreePercent:F1}%{(critical ? " ⚠️" : "")}").FontColor(cText).FontSize(8);
+                                        if (critical) pctText.SemiBold();
 
                                         t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                            .Text(u.UsoVisual).FontColor(cBarra).FontSize(7);
+                                            .Text(u.VisualUse).FontColor(cBar).FontSize(7);
                                     }
                                     else
                                     {
                                         // Si no se pudo leer el espacio (ej. servidor apagado o sin permisos)
                                         t.Cell().ColumnSpan(4).BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                            .Text(u.UsoVisual).FontColor(Colors.Grey.Darken1).Italic().FontSize(8);
+                                            .Text(u.VisualUse).FontColor(Colors.Grey.Darken1).Italic().FontSize(8);
                                     }
                                 }
                             });
                         }
 
                         // ── 7. CONTROLADORES (DRIVERS) ────────────────────
-                        Seccion(col, "7. Controladores (Drivers)");
+                        Section(col, "7. Controladores (Drivers)");
                         if (r.Drivers.Count == 0)
                         {
                             col.Item().PaddingLeft(4)
@@ -309,24 +309,24 @@ namespace CopicanariasServerReport.Pdf
 
                                 foreach (var d in r.Drivers)
                                 {
-                                    string versionTxt = d.TieneDriver ? d.VersionDriver : "Sin driver";
-                                    string proveedorTxt = d.TieneDriver ? d.ProveedorDriver : "—";
-                                    var cVersion = d.TieneDriver ? Colors.Black : Colors.Red.Darken2;
+                                    string versionTxt = d.HasDriver ? d.DriverVersion : "Sin driver";
+                                    string providerTxt = d.HasDriver ? d.DriverProvider : "—";
+                                    var cVersion = d.HasDriver ? Colors.Black : Colors.Red.Darken2;
 
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Nombre).FontSize(7.5f);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Fabricante).FontSize(7.5f);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.CodigoError.ToString()).FontColor(Colors.Red.Darken2).SemiBold().FontSize(7.5f);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.DescripcionError).FontColor(Colors.Red.Darken2).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Name).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Manufacturer).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.ErrorCode.ToString()).FontColor(Colors.Red.Darken2).SemiBold().FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.ErrorDescription).FontColor(Colors.Red.Darken2).FontSize(7.5f);
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(versionTxt).FontColor(cVersion).FontSize(7.5f);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(proveedorTxt).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(providerTxt).FontSize(7.5f);
                                 }
                             });
                         }
 
                         // ── 8. ALMACENAMIENTO ─────────────────────────────
-                        Seccion(col, "8. Almacenamiento");
+                        Section(col, "8. Almacenamiento");
 
-                        if (r.Discos.Count > 0)
+                        if (r.Disks.Count > 0)
                         {
                             col.Item().PaddingBottom(3).Text("Discos físicos (S.M.A.R.T.):").SemiBold().FontSize(9);
                             col.Item().Table(t =>
@@ -344,40 +344,40 @@ namespace CopicanariasServerReport.Pdf
                                 foreach (var h in new[] { "Modelo", "Interfaz", "Tamaño", "Estado S.M.A.R.T", "Temp", "Horas", "Salud" })
                                     t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(7.5f);
 
-                                foreach (var d in r.Discos)
+                                foreach (var d in r.Disks)
                                 {
-                                    var cSmart = d.Estado.Contains("Operativo") ? Colors.Green.Darken2 : Colors.Red.Darken2;
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Modelo).FontSize(7.5f);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Tipo).FontSize(7.5f);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"{d.TamanoGB:F0} GB").FontSize(7.5f);
-                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Estado).FontColor(cSmart).SemiBold().FontSize(7.5f);
+                                    var cSmart = d.State.Contains("Operativo") ? Colors.Green.Darken2 : Colors.Red.Darken2;
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Model).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.Type).FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"{d.SizeGB:F0} GB").FontSize(7.5f);
+                                    t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(d.State).FontColor(cSmart).SemiBold().FontSize(7.5f);
 
                                     // Temperatura
-                                    string tempTxt = d.Temperatura.HasValue ? $"{d.Temperatura}°C" : "—";
-                                    var cTemp = d.Temperatura.HasValue && d.Temperatura > 55
+                                    string tempTxt = d.Temperature.HasValue ? $"{d.Temperature}°C" : "—";
+                                    var cTemp = d.Temperature.HasValue && d.Temperature > 55
                                         ? Colors.Red.Darken2
-                                        : d.Temperatura.HasValue && d.Temperatura > 45
+                                        : d.Temperature.HasValue && d.Temperature > 45
                                             ? Colors.Orange.Darken3
                                             : Colors.Black;
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
                                         .Text(tempTxt).FontColor(cTemp).FontSize(7.5f);
 
                                     // Horas encendido
-                                    string horasTxt = d.HorasEncendido.HasValue
-                                        ? $"{d.HorasEncendido:N0}h" : "—";
+                                    string hoursTxt = d.HoursUsed.HasValue
+                                        ? $"{d.HoursUsed:N0}h" : "—";
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                        .Text(horasTxt).FontSize(7.5f);
+                                        .Text(hoursTxt).FontSize(7.5f);
 
                                     // % Salud (solo SSDs con atributo 202)
-                                    string saludTxt = d.TieneDatosSalud
-                                        ? $"{d.PorcentajeSalud}%" : "—";
-                                    var cSalud = d.TieneDatosSalud
-                                        ? (d.PorcentajeSalud < 10 ? Colors.Red.Darken2
-                                           : d.PorcentajeSalud < 30 ? Colors.Orange.Darken3
+                                    string healthTxt = d.HasHealthData
+                                        ? $"{d.HealthPercent}%" : "—";
+                                    var cHealth = d.HasHealthData
+                                        ? (d.HealthPercent < 10 ? Colors.Red.Darken2
+                                           : d.HealthPercent < 30 ? Colors.Orange.Darken3
                                            : Colors.Green.Darken2)
                                         : Colors.Grey.Darken1;
                                     t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                        .Text(saludTxt).FontColor(cSalud).FontSize(7.5f);
+                                        .Text(healthTxt).FontColor(cHealth).FontSize(7.5f);
                                 }
                             });
                             col.Item().PaddingTop(6);
@@ -397,28 +397,28 @@ namespace CopicanariasServerReport.Pdf
                             foreach (var h in new[] { "Vol.", "Total", "Libre", "% Libre", "Uso visual" })
                                 t.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(h).SemiBold().FontSize(8);
 
-                            foreach (var d in r.DiscosLogicos)
+                            foreach (var d in r.LogicDisks)
                             {
-                                int bloques = Math.Clamp((int)((100 - d.PorcentajeLibre) / 10), 0, 10);
-                                string barra = new string('█', bloques) + new string('░', 10 - bloques);
-                                bool critico = d.PorcentajeLibre < 20;
-                                var cDisco = critico ? Colors.Red.Darken2 : Colors.Black;
+                                int blocks = Math.Clamp((int)((100 - d.FreePercent) / 10), 0, 10);
+                                string bars = new string('█', blocks) + new string('░', 10 - blocks);
+                                bool critical = d.FreePercent < 20;
+                                var cDisk = critical ? Colors.Red.Darken2 : Colors.Black;
 
                                 t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                    .Text(d.Letra).SemiBold().FontSize(8);
+                                    .Text(d.Letter).SemiBold().FontSize(8);
                                 t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
                                     .Text($"{d.TotalGB:F1} GB").FontSize(8);
                                 t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                    .Text($"{d.LibreGB:F1} GB").FontColor(cDisco).FontSize(8);
+                                    .Text($"{d.FreeGB:F1} GB").FontColor(cDisk).FontSize(8);
                                 var pctText = t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                    .Text($"{d.PorcentajeLibre:F1}%{(critico ? " ⚠️" : "")}").FontColor(cDisco).FontSize(8);
-                                if (critico) pctText.SemiBold();
+                                    .Text($"{d.FreePercent:F1}%{(critical ? " ⚠️" : "")}").FontColor(cDisk).FontSize(8);
+                                if (critical) pctText.SemiBold();
                                 t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                    .Text(barra).FontColor(critico ? Colors.Red.Medium : Colors.Blue.Medium).FontSize(7);
+                                    .Text(bars).FontColor(critical ? Colors.Red.Medium : Colors.Blue.Medium).FontSize(7);
                             }
                         });
                         // ── 9. DF-SERVER (solo si el técnico es DF) ──────────
-                        if (r.EsTecnicoDf)
+                        if (r.IsDfTechnician)
                         {
                             var df = r.DfServer;
 
@@ -439,40 +439,40 @@ namespace CopicanariasServerReport.Pdf
                             {
                                 t.ColumnsDefinition(c => { c.RelativeColumn(1); c.RelativeColumn(2); });
                                 // Versión de DF-Server
-                                var cVers = df.VersionSoftware.Contains("No detectada") ? Colors.Red.Darken2 : Colors.Blue.Darken3;
-                                FilaColor(t, "Versión instalada:", df.VersionSoftware, cVers);
+                                var cVers = df.Version.Contains("No detectada") ? Colors.Red.Darken2 : Colors.Blue.Darken3;
+                                RowColor(t, "Versión instalada:", df.Version, cVers);
 
                                 // Digitalización certificada
-                                var cDig = df.DigitalizacionCertificada
+                                var cDig = df.HasCertifiedDigitization
                                     ? Colors.Green.Darken2 : Colors.Grey.Darken2;
-                                FilaColor(t, "Digitalización certificada:",
-                                    df.DigitalizacionCertificada
+                                RowColor(t, "Digitalización certificada:",
+                                    df.HasCertifiedDigitization
                                         ? "✅ Activa y funcionando"
                                         : "— No tiene / No activa", cDig);
 
                                 // Firmas DF-Signature
-                                if (df.TieneFirmas)
+                                if (df.HasSignatures)
                                 {
-                                    bool sinStock = df.FirmasRestantes == 0;
-                                    bool pocasFirmas = df.FirmasRestantes <= 100;
-                                    var cFirmas = pocasFirmas ? Colors.Red.Darken2 : Colors.Green.Darken2;
-                                    string textoFirmas;
-                                    if (sinStock)
-                                        textoFirmas = "❌ Sin stock de firmas · Cliente avisado";
-                                    else if (pocasFirmas)
-                                        textoFirmas = $"⚠️  {df.FirmasRestantes} firmas restantes — Stock bajo · Cliente avisado";
+                                    bool isOutOfStock = df.RemainingSignatures == 0;
+                                    bool hasLowSignatures = df.RemainingSignatures <= 100;
+                                    var cSignatures = hasLowSignatures ? Colors.Red.Darken2 : Colors.Green.Darken2;
+                                    string signaturesTxt;
+                                    if (isOutOfStock)
+                                        signaturesTxt = "❌ Sin stock de firmas · Cliente avisado";
+                                    else if (hasLowSignatures)
+                                        signaturesTxt = $"⚠️  {df.RemainingSignatures} firmas restantes — Stock bajo · Cliente avisado";
                                     else
-                                        textoFirmas = $"✅ {df.FirmasRestantes} firmas restantes";
-                                    FilaColor(t, "Firmas DF-Signature:", textoFirmas, cFirmas);
+                                        signaturesTxt = $"✅ {df.RemainingSignatures} firmas restantes";
+                                    RowColor(t, "Firmas DF-Signature:", signaturesTxt, cSignatures);
                                 }
                                 else
                                 {
-                                    Fila(t, "Firmas DF-Signature:", "Módulo no contratado");
+                                    Row(t, "Firmas DF-Signature:", "Módulo no contratado");
                                 }
                             });
 
                             // Tabla de certificados digitales
-                            if (df.TieneCertificados && df.Certificados.Count > 0)
+                            if (df.HasCertificates && df.Certificates.Count > 0)
                             {
                                 col.Item().PaddingTop(6).PaddingBottom(2)
                                     .Text("Certificados digitales:").SemiBold().FontSize(9);
@@ -490,32 +490,32 @@ namespace CopicanariasServerReport.Pdf
                                         t.Cell().Background(Colors.Blue.Lighten4).Padding(3)
                                             .Text(h).SemiBold().FontSize(8);
 
-                                    foreach (var cert in df.Certificados)
+                                    foreach (var cert in df.Certificates)
                                     {
-                                        int diasRestantes = (cert.FechaCaducidad.Date - DateTime.Today).Days;
-                                        bool caducado = diasRestantes < 0;
-                                        bool proximo = cert.ProximoACaducar && !caducado;
+                                        int remainingDays = (cert.ExpirationDate.Date - DateTime.Today).Days;
+                                        bool isExpired = remainingDays < 0;
+                                        bool isExpiringSoon = cert.IsExpiringSoon && !isExpired;
 
-                                        string estadoTxt = caducado
+                                        string stateTxt = isExpired
                                             ? "❌ Caducado · Cliente avisado"
-                                            : proximo
-                                                ? $"⚠️  Caduca en {diasRestantes} días · Cliente avisado"
-                                                : $"✅ Válido ({diasRestantes} días)";
+                                            : isExpiringSoon
+                                                ? $"⚠️  Caduca en {remainingDays} días · Cliente avisado"
+                                                : $"✅ Válido ({remainingDays} días)";
 
-                                        var cEstado = caducado ? Colors.Red.Darken2
-                                                    : proximo ? Colors.Orange.Darken3
+                                        var cState = isExpired ? Colors.Red.Darken2
+                                                    : isExpiringSoon ? Colors.Orange.Darken3
                                                     : Colors.Green.Darken2;
 
                                         t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
-                                            .Padding(3).Text(cert.Nombre).FontSize(8);
+                                            .Padding(3).Text(cert.Name).FontSize(8);
                                         t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
-                                            .Padding(3).Text(cert.FechaCaducidad.ToString("dd/MM/yyyy")).FontSize(8);
+                                            .Padding(3).Text(cert.ExpirationDate.ToString("dd/MM/yyyy")).FontSize(8);
                                         t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
-                                            .Padding(3).Text(estadoTxt).FontColor(cEstado).SemiBold().FontSize(8);
+                                            .Padding(3).Text(stateTxt).FontColor(cState).SemiBold().FontSize(8);
                                     }
                                 });
                             }
-                            else if (!df.TieneCertificados)
+                            else if (!df.HasCertificates)
                             {
                                 col.Item().PaddingLeft(4).PaddingTop(4)
                                     .Text("Sin certificados digitales registrados.")
@@ -534,33 +534,33 @@ namespace CopicanariasServerReport.Pdf
                         x.TotalPages().FontSize(7).FontColor(Colors.Grey.Medium);
                     });
                 });
-            }).GeneratePdf(ruta);
+            }).GeneratePdf(path);
         }
 
         // ── Helpers de layout ────────────────────────────────────────
 
-        private static void Seccion(ColumnDescriptor col, string titulo)
+        private static void Section(ColumnDescriptor col, string title)
         {
-            col.Item().PaddingTop(10).PaddingBottom(2).Text(titulo)
+            col.Item().PaddingTop(10).PaddingBottom(2).Text(title)
                 .FontSize(11).SemiBold().FontColor(Colors.Blue.Darken3);
             col.Item().LineHorizontal(1).LineColor(Colors.Blue.Darken2);
             col.Item().PaddingBottom(4);
         }
 
-        private static void Fila(TableDescriptor t, string etiqueta, string valor, float fontSize = 9)
+        private static void Row(TableDescriptor t, string label, string value, float fontSize = 9)
         {
-            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(etiqueta).SemiBold();
-            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(valor).FontSize(fontSize);
+            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(label).SemiBold();
+            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(value).FontSize(fontSize);
         }
 
-        private static void FilaColor(TableDescriptor t, string etiqueta, string valor, string color)
+        private static void RowColor(TableDescriptor t, string label, string value, string color)
         {
-            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(etiqueta).SemiBold();
-            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(valor).FontColor(color).SemiBold();
+            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(label).SemiBold();
+            t.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(value).FontColor(color).SemiBold();
         }
 
         // ── Helper para Marca de Agua ─────────────────────────────────
-        private static byte[] HacerImagenTransparente(byte[] imageBytes, float opacidad)
+        private static byte[] MakeImageTransparent(byte[] imageBytes, float opacity)
         {
             using (var msIn = new MemoryStream(imageBytes))
             using (var img = System.Drawing.Image.FromStream(msIn))
@@ -569,7 +569,7 @@ namespace CopicanariasServerReport.Pdf
                 using (var g = System.Drawing.Graphics.FromImage(bmp))
                 {
                     // Usamos las rutas completas de System.Drawing.Imaging
-                    var matrix = new System.Drawing.Imaging.ColorMatrix { Matrix33 = opacidad };
+                    var matrix = new System.Drawing.Imaging.ColorMatrix { Matrix33 = opacity };
                     var attributes = new System.Drawing.Imaging.ImageAttributes();
                     attributes.SetColorMatrix(matrix, System.Drawing.Imaging.ColorMatrixFlag.Default, System.Drawing.Imaging.ColorAdjustType.Bitmap);
 
