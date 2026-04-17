@@ -1136,7 +1136,7 @@ namespace CopicanariasServerReport
             if (_report.Disks.Count == 0) await SmartProcess();
 
             Log(">>> Recopilando telemetría del sistema...\n");
-            await Task.Run(() => TelemetryService.RecopilarTelemetria(_report, Log));
+            await Task.Run(() => TelemetryService.CollectTelemetry(_report, Log));
             await TelemetryService.FetchJavaAsync(_report, Log, _http);
 
             using var sfd = new SaveFileDialog
